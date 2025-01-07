@@ -1,0 +1,3284 @@
+FORMAT: 1A
+HOST: https://api.jobspikr.com/v2
+
+# JobsPikr API
+
+
+JobsPikr API helps you interact and use the data provided by JobsPikr. 
+
+There are three APIs here:
+
+* Job Search API - search for jobs based on various criteria.
+
+* Expired Jobs API - get all (consumed) jobs expired on a given date range.
+
+* Aggregation API - get aggregated counts based on the query given.
+
+
+This document covers the concepts related to API, its usage and some illustrative examples and use cases. 
+
+For help with specific queries, you may also check our query builder helper at https://app.jobspikr.com/my/query_builder
+
+
+## Concepts
+
+Details on some of the concepts to better use our API.
+
+### API URL
+
+Our regular endpoint is
+
+Base URL: `https://api.jobspikr.com/v2`
+
+In case of persistent issues, you may also use the following URL as fallback
+
+Base URL: `https://api-bcp.jobspikr.com/v2`
+
+
+Endpoint differs based on the resource that needs to be accessed
+
+| Resource | URL |
+|--|--|
+| Job Data | https://api.jobspikr.com/v2/data |
+| Expired Jobs | https://api.jobspikr.com/v2/expired_jobs |
+| Aggregate Data | https://api.jobspikr.com/v2/aggregate_data |
+
+Please refer to [Reference section](#reference/job-search-api), for more details on how to access each resource.
+
+
+### API Keys
+
+To interact with the API, you need an API key., which can be taken from the link https://app.jobspikr.com/my/api_keys. 
+
+There are two sets of API keys - one for production, that hosts the actual data, and the other for sandbox, mainly used for testing purposes. 
+
+Data obtained using Sandbox credentials will not be deducted from your credits.
+
+### Authentication
+
+The JobsPikr API uses API keys to authenticate your requests. You can view and manage your API keys here:
+
+https://app.jobspikr.com/my/api_keys
+
+Authentication to the API can be performed in two ways:
+* HTTP Basic Auth - provide your client_id and client_auth_key as username and password in the Basic Auth.
+* In Headers - provide client_id and client_auth_key as Headers.
+
+All the examples in this documentation send client_id and client_auth_key via Headers.
+
+### Job credit
+
+* Job credit refers to each job data that is consumed from our platform. 
+* These credits are valid as per your billing cycle.
+* Each job consumed using production key via API or downloaded by logging in to www.app.jobspikr.com  counts towards credit.
+* Jobs accessed from API using sandbox credentials don't count towards anything.
+
+### Sandbox API
+
+If you are just exploring the API or testing your queries or for any form of tests, please use the Sandbox API credentials obtained from here
+
+https://app.jobspikr.com/my/api_keys
+
+* Jobs available for Sandbox credentials are only a subset of job data from `1 March 2021 - 30 April 2021`.
+* Jobs accessed from API using sandbox credentials don't count towards anything.
+
+
+## Request and Response Data format
+
+* All the input and params passed to the API should be in `UTF-8` and in JSON format.
+* Response can be either in JSON(default) or XML format.
+* Response will always have two fields `status` and `message`.
+* Other fields in the response might vary depending upon the endpoint accessed and will be described later in this document.
+
+## API Rate Limit
+
+JobsPikr API uses rate limiting to safeguard against bursts of incoming traffic.
+Based on the resource accessed, rate limiting logic differs.
+
+| URL | # of req allowed per minute | # of req allowed per hour |
+|--|--|--|
+| https://api.jobspikr.com/v2/data | 100 | 5000 |
+| https://api.jobspikr.com/v2/aggregate_data | 10 | 100 |
+
+Any request beyond the given rate limit will give the following response from the API with the status code 429.
+
+```
+{
+    "status": "error",
+    "message": "Retry later"
+}
+```
+
+## Cursor in API Query for pagination
+
+Our API supports cursor, which is primarily a mechanism to consume data in smaller chunks when the overall number of records is too high.
+
+### How to use the cursor?
+1. Send a request with/without the cursor.
+2. Take the next_cursor value from the response.
+3. Use it as the value for cursor argument in the next request body.
+4. Repeat step 2 & 3 until you get `"status":"no_data"` in the response.
+5. When you get `no_data` it means there is no more data present for the given query at that time. Store the cursor in a file or DB.
+6. Try sending an API request with the stored cursor value after an hour(minimum). If there is any new data added, which satisfies the given query in the last 1 hour, it will be returned.
+7. Repeat steps 2-7 to keep getting data.
+
+## Frequently Asked Questions
+
+### Will I be charged for consuming/downloading the same jobs again?
+
+Even though you consumed the same records multiple times - either by making the same query again or across different queries satisfying the same condition -
+your volume credits will be deducted for the unique records consumed in a given credit cycle(30 days period). The counter in the dashboard here https://app.jobspikr.com/ 
+shows the number of unique records consumed either via API or file download. We update this counter every one hour where we get the number of unique records consumed
+so far by your account for the current billing cycle.
+
+### What is the period in which job credits are counted and repeated job consumption ignored?
+
+Your job credits are valid for 30 days (Each billing cycle). These credits can be consumed via the JobsPikr API or file download. When your billing cycle is reset, the job credits are reset as per your plan
+
+
+
+### I am getting too many results for my queries
+
+This happens if your queries are too generic. We suggest you try to restrict the search term, post dates or location to get specific results. 
+Some of these cases are explained in the example below. Please go over them and if the issue still persists please reach out to us by creating a support ticket.
+
+### Will my  credits be carried forward to the next month?
+Your job credits are applicable to your current billing cycle (30 days) only and are not carried forward to the next month.
+
+### Where can I get more details about search_query_json?
+
+We use Elasticsearch to store and retrieve all the job records, hence `search_query_json` can take in whatever `query` accepts as per Elasticsearch.
+But we internally use only these two queries to construct all our queries - [query_string](https://www.elastic.co/guide/en/elasticsearch/reference/7.6/query-dsl-query-string-query.html)
+and [bool](https://www.elastic.co/guide/en/elasticsearch/reference/7.6/query-dsl-bool-query.html).
+
+If you don't know Elasticsearch queries, it’s not a problem at all. We don't want you to go through those documents as well.
+We've given an extensive list of examples explaining how each and every query is built for multiple scenarios (#reference/examples/job-search-api).  They should help you understand how this works.
+
+
+Also, we have a [query builder](https://app.jobspikr.com/my/query_builder) which will help you build the most common queries.
+
+In case you still need more help, please reach out to our support and we would be happy to help.
+
+## Job Data Schema
+
+|Field Name | Description | Data Type | Comments|
+|--- | --- | --- | ---|
+|crawl_timestamp | Timestamp at which job was extracted by JobsPikr | Timestamp (in nanoseconds) | Mandatory field|
+|url | The URL from which this particular job data is extracted | URL | Mandatory field|
+|job_title | Job title as available from source website | String | Mandatory field|
+|category | The category in which a job appears in the source website | String | Extracted if and as available from the source website|
+|company_name | Name of the company which has advertised the job | String | Mandatory field|
+|city | Name of the city | String | Extracted if and as available from the source website|
+|state | Name of the state | String | Extracted if and as available from the source website|
+|country | Name of the country | String | Extracted if and as available from the source website|
+|inferred_city | Normalized city name. Eg: city names like LA, Los Angeles etc. get normalized to a standard value, viz., "Los Angeles" | String | System generated field|
+|inferred_state | Normalized state name | String | System generated field|
+|inferred_country | Normalized country name | String | System generated field|
+|post_date | Date on which the job was published | Date (in YYYY-MM-DD format) | Mandatory field|
+|job_description | Job description text | String | Extracted if and as available from the source website|
+|job_type | Type of the advertised job | String | Extracted as Full Time, Part Time, Contract, Internship or Volunteer; Could be null if it data is unavailable or there are conflicting values listed on the source website|
+|salary_offered | Salary offered for the advertised job | String | Extracted if and as available from the source website. Available only if salary information is provided as a standalone value in the source website which could be extracted; not if it is mentioned as part of a text block (say, within in the job description text)|
+|job_board | Name of the job board from where data is collected | String | Created and added by JobsPikr. For data collected from direct employer websites, the value will be provided as company_website|
+|cursor | An incremental counter value | Integer | Created and added by JobsPikr to help with paginating through API response to access data in smaller chunks.|
+|contact_email | Contact email address | String | Extracted if and as available from the source website. If multiple emails are found, the values will be comma separated (or as an array of string if consuming data in JSON/XML format)|
+|contact_phone_number | Contact phone number | String | Extracted if and as available from the source website|
+|uniq_id | An alpha-numeric value created by JobsPikr to uniquely identify a job posting | String | System generated field|
+|html_job_description | Job description extracted along with HTML elements |  | Extracted if and as available from the source website. Useful in retaining styling w.r.t. the source.|
+|valid_through | Validity date of the advertised job | Date (in YYYY-MM-DD format) | Extracted if and as available from the source website|
+|has_expired | JobsPikr re-crawls URLs for jobs downloaded by a user every 7th day from post_date for 60 days to establish if the job is active or not. | Boolean | Expected values are "true" or "false". Access to the field requires an add-on subscription to Freshness Check (also known as Job Expiry API)|
+|latest_expiry_check_date | Date on which the latest has_expired check was performed | Date (in YYYY-MM-DD format) | System generated field|
+|inferred_iso3_lang_code | 3-character language code to identify the language in which the job is published | String | System generated field|
+|duplicate_status | JobsPikr checks if a job is duplicate of another job collected from a different source website. | String | Possible values are:NA: if duplicate status check is yet to be performed True: if the job is found to be a duplicateFalse: if the job is found to be unique|
+|duplicate_of | uniq_id of jobs that were found to be duplicates. | String | If multiple duplicates are found, the uniq_id values will be comma separated (or as an array of string if consuming data in JSON/XML format). It will be NULL if the duplicate_status is either NA or False.|
+|inferred_department_name | Name of the department to which the job is being advertised for (eg: HR, Sales, Legal and so on) | String | System generated field using a machine-learning model. Only one department name will be returned for a given job. This will be available only if the job is published in English language.The master list of department names can be found here - https://app.jobspikr.com/public_api_details#/reference/departments-list|
+|inferred_department_score | Confidence score for the inferred_department_name generation | Integer | System generated value that ranges from 0 to 100 (100 being the highest/best score)|
+|inferred_job_title | A machine-generated job title depicting just the key information points for a given job. | String | System generated field using a machine-learning model. The field helps in better search performance.|
+|is_remote | Status field to check if the given job is a remote job opportunity or not. | Boolean | Expected values are "true" or "false". This is a system generated field using keywords that points to a remote job opportunity.|
+|inferred_salary_currency | 3-character representation of currency value (as per ISO 4217 standards) | String | System generated field using an ML-model. Inferred_salary_* fields attempts to collect salary information from free text like job tile and description, even if it is not provided as a separate data point that could be extracted. If salary is available as a stand alone data point, inferred_salary_* fields return normalized values.|
+|inferred_salary_time_unit | This field denotes the normalized unit of time in which the salary is mentioned. Eg: Monthly, Yearly, Weekly, Daily, Hourly. | String | System generated field|
+|inferred_salary_from | Represents the salary lower limit of amount if the salary is given as a range; or the salary amount itself if it is provided as a fixed value | Integer | System generated field|
+|inferred_salary_to | Represents the upper limit of salary amount if the salary is given as a range | Integer | System generated field|
+|inferred_skills | List of relevant skills collected from the job title and description | String | System generated field. If multiple skills are found, the values will be comma separated (or as an array of string if consuming data in JSON/XML format). The master list of skill sets could be found here - https://app.jobspikr.com/skill_set_.txt|
+|inferred_company_type | Refers to whether the job is being posted by a direct employer or recruitment agency | String | System generated field using a machine learning model. Will be available only if job is published in English language. Possible values:1. "agency" for recruitment agency2. "company" for direct employer|
+|inferred_company_type_score | Confidence score for the inferred_company_type generation | Integer | System generated value that ranges from 0 to 100 (100 being the highest/best score)|
+|inferred_min_experience | The minimum number of years of past experience required for the job. | Integer | System generated field using a machine learning model. Will be available only if job is published in English language.|
+|inferred_max_experience | The maximum number of years of past experience required for the job. | Integer | System generated field using a machine learning model. Will be available only if job is published in English language.|
+|inferred_seniority_level | Expected seniority level requirement of the job. | String | System generated field using a machine learning model. Will be available only if job is published in English language. Possible values:1. Entry Level - for freshers and junior-level jobs2. Mid Level -  for mid-senior or managerial jobs3. Executive Level - for CXO, Director, VP-level jobs|
+|apply_url | The application url of the job available on the job posting page. | String | Extracted if and as available from the source website |
+|logo_url | The logo url of hiring company from the job posting page. | String | Extracted if and as available from the source website |
+|is_salary_estimated | Status field to check if the given job has a salary that is estimated by the job board. | Boolean | Expected values are "true" or "false". This is a system generated field that indicates whether the salary details are estimated or not.|
+|extra_fields | These are fields that are crawled from specific websites and may not be available across all sources. They depend on site-specific data and vary based on the information that individual sites provide. | String (Array/List) | Extracted if and as available from specific websites. Values could be different for each site. |
+|inferred_education_level | This field represents the education level requirements inferred from the job description. Our system analyzes the text in the job posting to determine the most likely education level required for the role. | String | System-generated field using machine learning. Inferred if available in the job description. |
+|inferred_onet_soc_code | This is the inferred US SOC (Standard Occupational Classification) based on O*NET classification codes. These codes are inferred from the job title and description to provide standardized job role information based on the US classification system. | String | System-generated field based on US SOC classification. Could be null if insufficient data from the job title. |
+|inferred_onet_soc_job_title | This field represents the inferred US SOC (ONET) job title. We derive these titles from the job description and title to match them with the corresponding ONET classifications used in the US. | String | System-generated field using O*NET classification. Derived from job title and description. |
+|inferred_co_website_url | This field contains company metadata, such as industry information, and is mapped using the LinkedIn library. It’s not part of our crawling or inference process. | URL | System-generated field mapped using external data sources like LinkedIn. This field is not crawled directly. | 
+
+## API Changelog
+
+* 2024-04-28 : Added `is_salary_estimated` field
+* 2021-08-21 : Added `logo_url` field
+* 2021-06-09 : Added `apply_url` field
+* 2021-02-26 : Added `inferred_seniority_level` and `inferred_*_experience` fields
+* 2020-10-21 : Added `inferred_company_type_*` fields
+* 2020-10-21 : Added `inferred_salary_*` fields
+* 2020-08-21 : Added `is_remote` field
+* 2020-08-01 : Added `inferred_job_title` field
+* 2020-08-01 : Added `inferred_department_*` fields
+* 2019-12-21 : Added option for freshness check
+
+
+## Error codes
+Jobspikr API applies a lot of validations before sending out the data response.
+
+| Error message | Status code | Error type| 
+|--- | --- | --- |
+| search_query_json params should be present. | 400 | search_query_json is required field. |
+| search_query_json params should be present. | 400 | search_query_json field is empty hash |
+| The dataset param should be of type Array | 403 | "dataset" filter should be in array format. |
+| Please check your query json | 400 | search_query_json not in proper format. |
+| This organization has not subscribed to a plan yet. | 402 | No active subscription available for Data feeds. |
+| Volume credits are over for this organization. | 403 | All available credits for the current credit cycle has been exhausted. |
+| Daily limit reached for the trial. Please upgrade to get more data. | 403 | For trial subscriptions, if daily limit is set and it gets exhausted for the remaining day. |
+| Subscription is expired for this organization. | 403 | Data feeds subscription is non-active with expired state. |
+| Subscription is cancelled for this organization. Please subscribe again to continue getting data. | 403 | Data feeds subscription is non-active with cancelled state. |
+| Subscription is deleted for this organization. Please subscribe again to continue getting data. | 403 | Data feeds subscription is non-active with deleted state. |
+| Subscription is put on hold for this organization. Please subscribe again to continue getting data. | 403 | Data feeds subscription is non-active with put on hold state. |
+| The inferred salary related keywords are allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to inferred salary fields. |
+| The inferred salary time unit related keywords are allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to inferred salary time unit fields. |
+| The is_salary_estimated keyword is allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to inferred salary estimation fields. |
+| The inferred onet fields are allowed in the search_query_json only for selective clients. Please reach out to us | 400 | Data feeds subscription does not have access to onet fields. |
+| The inferred education level are allowed in the search_query_json only for selective clients. Please reach out to us | 400 | Data feeds subscription does not have access to inferred education fields. |
+| The inferred co industry related keywords are allowed in the search_query_json only for selective client. Please reach out to us. | 400 | Data feeds subscription does not have access to inferred company industry fields. |
+| The inferred department related keywords are allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to inferred department fields. |
+| The inferred seniority related keywords are allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to inferred seniority fields. |
+| The is_remote keyword is allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to is_remote field. |
+| The apply_url keyword is allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to apply_url field. |
+| The logo_url keyword is allowed in the search_query_json only for growth plan and above | 400 | Data feeds subscription does not have access to logo_url field. |
+| The inferred skills keyword is allowed in the search_query_json only for business plan and above | 400 | Data feeds subscription does not have access to inferred skills fields. |
+| The inferred company type related keywords are allowed in the search_query_json only for business plan and above | 400 | Data feeds subscription does not have access to inferred company type field. |
+| The inferred_iso3_lang_code field is not allowed to filter in your existing plan. | 400 | Data feeds subscription does not have access to inferred iso language fields. |
+| The inferred_posted_by or inferred_posted_by_score field doesn't exist so please use inferred_company_type or inferred_company_type_score instead | 400 | Data feeds subscription does not have access to inferred posted by field. |
+| The inferred_co_website_url field is not allowed to filter in your existing plan. | 400 | Data feeds subscription does not have access to inferred company website url field. |
+| The current plan doesn't allow f500 dataset access | 403 | Data feeds subscription does not have access to f500 dataset field. |
+| API credentials are valid but the organization is not found.Please check your environments | 401 | Valid client_auth_key not provided. |
+| Invalid client_id or client_auth_key | 401 | client_id or client_auth_key not provided. |
+| Allowed range for size is between 10 and 100 | 400 | Provided size is not between 10 and 100. |
+| Invalid time_unit passed in post_date | 400 | Date format is not in dd-mm-yyyy format. |
+| Post date start date can not be more than restricted dates | 403 | Post date filter provided is not within the permitted range. |
+| Allowed values for format are json and xml | 400 | "format" filter is not json or xml. |
+| The exclude duplicates should be either true or false | 403 | "exclude_duplicates" filter should be a boolean value |
+| The dataset parameter is not allowed in search_query_json, please use dataset parameter outside search_query_json instead | 400 | If "dataset" filter is used inside "search_query_json" |
+| The dataset param can either be job_board or f500 | 403 | "dataset" filter should be either "job_board" or "f500" |
+| The exclude duplicates keyword is not allowed for this plan | 403 | exclude_duplicate" filter is not enabled for the subscribed data feeds plan. |
+
+
+# Group Job Search API
+
+## Endpoint Details [/data]
+
+### Job Search Using POST Requests [POST]
+
+This endpoint is the workhorse of the API. This API endpoint can perform Regular job searches. Please note that even though this is a GET request, even the POST request gives the same result. Which we have illustrated later
+
+#### Fields in Request Header
+
+- client_id `String` `REQUIRED` - This is your unique client identification string to access JobsPikr API
+
+- client_auth_key `String` `REQUIRED` - This your unique client authentication key to access JobsPikr API
+
+Both `client_id` and `client_auth_key` can be obtained from here. https://app.jobspikr.com/my/api_keys. 
+
+Please use Sandbox API credentials for testing our API responses, so that your job credits are not deducted  while testing our API.
+
+#### Fields in Request Body
+
+- search_query_json `JSON` `REQUIRED` - Search query generated by you for which the data will be returned. This search query string takes a JSON object as input. More information on this field can be found [here](#reference/examples/job-search-api)
+
+- size `String` `OPTIONAL`-  The number of records to be returned for this request. It can be between 10 and 100. This is an optional parameter with a default value of 100. Size should not be a part of search query JSON and should be always sent separately as mentioned here.
+
+- format `String` `OPTIONAL` - The format of the response from API. It can be either 'JSON' or 'XML'. This is an optional parameter with a default value of 'JSON'.
+
+- cursor `String` `OPTIONAL` - This for pagination. API response can contain a maximum of 100 records but if there are 2000 records present and to get everything, you can use this cursor argument. This argument should not be mentioned inside of _search_query_json_ and should always be sent separately.
+Please check [How to use cusor?](#introduction/cursor-in-api-query-for-pagination) for learning more about cusor.
+
+
+#### Fields in Response Body
+
+Depending upon whether 'JSON' or 'XML' was passed in the format field of the query,  A JSON or XML object will be returned all the following properties.
+
+- status - The status of the response. It can be either these three
+    
+    _'success'_, if the request is processed successfully and data is returned.
+
+    _'no_data'_ in case the request processes  successfully but there is no more data present for the given query.
+
+    _'error'_ in case of some problem with processing the request.
+
+- message -  The message explaining the status of the response.
+- total_count - Number of records present in total for the query given in the request. If this number is more than 100 or the size specified in the request, you can use the `next_cursor` from the response as `cursor` in subsequent request to get all the data.
+- job_credit_remaining -  Number of job data that is left to be consumed as per the plan subscription.
+- job_data - An array of objects of job data. The format  could be JSON or XML, depending upon what was passed in the format field in the query.
+- next_cursor - The cursor to be used in the next request  to get the subsequent data for the query.
+- size - Number of records present in the current response.
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "cursor": 1549411216369936,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "\"software developer\""
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+    
+    + Body
+    
+            {
+                "status": "success",
+                "message": "Data present.",
+                "next_cursor": 1576566168294049,
+                "total_count": 8,
+                "size": 8,
+                "job_credit_remaining": 65459,
+                "job_data": [
+                {
+                "job_type": "Full Time",
+                "cursor": 1576562594581424,
+                "inferred_country": "Sweden",
+                "country": "SE",
+                "crawl_timestamp": "2019-12-17 05:15:35 +0000",
+                "city": "Stockholm",
+                "inferred_city": "Stockholm",
+                "html_job_description": "Job Description\nVi letar just nu efter en skicklig kommunikatör till Worldlines….",
+                "url": "https://www.careerbuilder.se/jdp/technical-writer-till-worldline-j3m0gr790pp56wvksmh",
+                "geo": "se",
+                "uniq_id": "3414773dd9c696848062a23e499df7fc",
+                "job_description": "Vi letar just nu efter en skicklig kommunikatör till Worldlines dynamiska team! I den här….",
+                "job_board": "careerbuilder",
+                "state": "Stockholms län",
+                "inferred_state": "Stockholm",
+                "post_date": "2019-12-16",
+                "company_name": "Academic Work",
+                "category": "Sales Engineers",
+                "job_title": "Technical Writer till Worldline"
+                },
+                ]
+            }
+        
+    + Attributes
+
+        + status - Status of the response. It can have one of the 3 values : 'success', 'no_data' or 'error'
+        + message - Message explaining the status of the response
+        + next_cursor -  The cursor to be used in the next request to get the subsequent data for the query.
+        + `total_count` -  Number of records present for the query in request. If this number is more than 100 or the size specified in the request, you can use the `next_cursor` in subsequent request to get all the data.
+        + size - Number of records  present in the current response
+        + job_credit_remaining -   Number of job data that is left to be consumed as per the plan subscription.
+        + job_data -  An array of objects of job data. The format  could be JSON or XML, depending upon what was passed in the format field in the query
+
+
+### Job Search Using GET Request [GET]
+
+Instead of using a [post request](https://jobspikr.docs.apiary.io/#reference/job-search-api/endpoint-details/job-search-using-post-requests), 
+you can use get request as well to get job records. All the header parameter, body parameters are the same for both `POST` and `GET` request.
+
+Few libraries don’t support adding body to a GET request, hence we've enabled POST request as well for all the endpoints discussed in this documentation. 
+
+That said, this documentation tool that we've used also doesn't support body in GET request, hence trying out this particular request in the right-side console won't work.
+
+#### Rate Limit
+
+| | |
+|--|--|
+|Maximum number of requests allowed per minute |100|
+|Maximum number of requests allowed per hour|5000|
+| | |
+
+Any request beyond the given rate limit will give the following response from the API with the status code 429.
+
+```
+{
+    "status": "error",
+    "message": "Retry later"
+}
+```
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "cursor": 1549411216369936,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "\"techincal writer\""
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor: cursor_value (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - The format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+    
+    + Body
+    
+            {
+                "status": "success",
+                "message": "Data present.",
+                "next_cursor": 1576566168294049,
+                "total_count": 8,
+                "size": 8,
+                "job_credit_remaining": 65459,
+                "job_data": [
+                {
+                "job_type": "Full Time",
+                "cursor": 1576562594581424,
+                "inferred_country": "Sweden",
+                "country": "SE",
+                "crawl_timestamp": "2019-12-17 05:15:35 +0000",
+                "city": "Stockholm",
+                "inferred_city": "Stockholm",
+                "html_job_description": "Job Description\nVi letar just nu efter en skicklig kommunikatör till Worldlines….",
+                "url": "https://www.careerbuilder.se/jdp/technical-writer-till-worldline-j3m0gr790pp56wvksmh",
+                "geo": "se",
+                "uniq_id": "3414773dd9c696848062a23e499df7fc",
+                "job_description": "Vi letar just nu efter en skicklig kommunikatör till Worldlines dynamiska team! I den här….",
+                "job_board": "careerbuilder",
+                "state": "Stockholms län",
+                "inferred_state": "Stockholm",
+                "post_date": "2019-12-16",
+                "company_name": "Academic Work",
+                "category": "Sales Engineers",
+                "job_title": "Technical Writer till Worldline"
+                },
+                ]
+            }
+        
+    + Attributes
+
+        + status - Status of the response. It can have one of the 3 values: 'success', 'no_data' or 'error'
+        + message - Message explaining the status of the response
+        + `total_count` - Number of records present for the query in request. If this number is more than 100 or the size specified in the request, you can use the `next_cursor` in subsequent request to get all the data.
+        + next_cursor - The cursor to be used in the next request to get the subsequent data for the query.
+        + size - Number of records  present in the current response
+        + job_credit_remaining -   Number of job data that is left to be consumed as per the plan subscription.
+        + job_data -  An array of objects of job data. The format could be JSON or XML, depending upon what was passed in the format field in the query
+
+# Group Expired Jobs API
+
+
+## Endpoint Details [/expired_jobs]
+
+### Get all the jobs expired on a given date(previously consumed) [POST]
+
+* This is an addon feature enabled on request. Please contact sales team.
+
+Here you can get all the consumed jobs that are, expired in the given date range.
+
+#### Fields in Request Header
+
+- client_id `String` `REQUIRED` - This is your unique client identification string to access JobsPikr API
+
+- client_auth_key `String` `REQUIRED` - This your unique client authentication key to access JobsPikr API
+
+Both `client_id` and `client_auth_key` can be obtained from here. https://app.jobspikr.com/my/api_keys. 
+
+#### Fields in Request Body
+
+- size `Integer` `OPTIONAL`: The number of records to be returned for this request. It can be between 10 and 100. This is an optional parameter with a default value of 100. Size should not be a part of search query JSON and should be always sent separately as mentioned here.
+
+- cursor `String` `OPTIONAL` - This for pagination. API response can contain a maximum of 100 records but if there are 2000 records present and to get everything, you can use this cursor argument. Please check [How to use cusor?](#introduction/cursor-in-api-query-for-pagination) for learning more about cusor.
+
+- from_date `String` `OPTIONAL` - This field is to specify the date from which the expired jobs should be queried. All the consumed jobs, expired on or after this date will be returned. It should be in the format `YYYY-MM-DD`. The default value is the current date.
+
+- to_date `String` `OPTIONAL` - This field is to specify the date from which the expired jobs should be queried. All the consumed jobs, expired on or before this date will be returned. It should be in the format `YYYY-MM-DD`. The default value is the current date.
+
+- date `String` `OPTIONAL` - This field is to specify the date on which the expired jobs should be queried. All the consumed jobs, expired on this date will be returned.It should be in the format `YYYY-MM-DD`. The default value is the current date.
+Presence of this field will take precedence over the `from_date` and `to_date` parameters.
+
+- format `OPTIONAL`: The format of the response from the API. It’s an optional field with the default value as JSON.
+
+
+#### Fields in Response Body
+
+Depending upon whether 'JSON' or 'XML' was passed in format field of the query,  A JSON or XML object will be returned all the following properties.
+
+- status - The status of the response. It can be either these three
+    
+    _'success'_, if the request is processed successfully and data is returned.
+
+    _'no_data'_ in case the request processes  successfully but there is no more data present for the given query.
+
+    _'error'_ in case of some problem with processing the request.
+
+- message -  The message explaining the status of the response.
+- total_count - Number of expired records present for the given date. If this number is more than 100 or the size specified in the request, you can use the `next_cursor` from the response as `cursor` in subsequent request to get all the data.
+- expired_jobs - An array of objects of job data that got expired in the given date. The format  could be JSON or XML, depending upon what was passed in the format field in the query.
+- next_cursor - The cursor to be used in the next request  to get the subsequent data for the query.
+- size - Number of records present in the current response.
+
+`NOTE:`
+    Sandbox response for this endpoint, returns only the same response for any number of request.
+
++ Request (application/json)
+
+    + Body
+        
+            {
+                "size": "10",
+                "date": "2020-10-20"
+            }
+    + Headers 
+
+            client_id: Replace with your client_id
+            client_auth_key:  Replace with your client_auth_key
+    
+    + Attributes
+            
+        + size : `size` (string,optional) - The number of records to be returned for this request. It can be between 10 and 100. This is an optional parameter with a default value of 100. Size should not be a part of search query JSON and should be always sent separately as mentioned here.
+        + cursor : `cursor` (string,optional) - This for pagination. API response can contain a maximum of 100 records but if there are 2000 records present and to get everything, you can use this cursor argument. This argument should not be mentioned inside of search_query_json and should always be sent separately. Please check How to use cusor? for learning more about cusor.
+        + from_date : `from_date` (string,optional) - This field is to specify the date from which the expired jobs should be queries. All the consumed jobs, expired on or after this date will be returned. It should be in the format `YYYY-MM-DD`. The default value is the current date.
+        + to_date : `to_date` (string,optional) - This field is to specify the date from which the expired jobs should be queries. All the consumed jobs, expired on or before this date will be returned. It should be in the format `YYYY-MM-DD`. The default value is the current date.
+        + format : `format` (string,optional) - The format of the response from the API. It’s an optional field with the default value as JSON.
+
+
++ Response 200 (application/json)
+
+    + Body
+        
+            {
+                "status": "success",
+                "message": "Data present.",
+                "total_count": 2521,
+                "size": 50,
+                "next_cursor": 1602273627739147,
+                "expired_jobs": [
+                {
+                    "uniq_id": "33b145f9ce4ebb1b9dc71b35b478c8e0",
+                    "url": "https://www.indeed.fr/voir-emploi?jk=5a06c36a232c06cb",
+                    "has_expired": true,
+                    "latest_expiry_check_date": "2020-10-19",
+                    "post_date": "2020-10-05",
+                    "cursor": 1602201625494528
+                },
+                {
+                    "uniq_id": "096970dca1dd0154331d57a2abaff448",
+                    "url": "https://offre-demploi.monster.fr/assistant-adminstrative-et-comptable-h-f-saverdun-occ-fr-randstad/220797855",
+                    "has_expired": true,
+                    "latest_expiry_check_date": "2020-10-19",
+                    "post_date": "2020-10-04",
+                    "cursor": 1602201625597926
+                },
+                {
+                    "uniq_id": "72d2052e2070b7658010a0f374a1d5ff",
+                    "url": "https://www.indeed.co.uk/viewjob?jk=f03a61fa2b0d708e",
+                    "has_expired": true,
+                    "latest_expiry_check_date": "2020-10-19",
+                    "post_date": "2020-10-05",
+                    "cursor": 1602201625899236
+                },
+                ...
+                ]
+
+            } 
+        
+    + Attributes
+
+        + status - The status of the response. It can be either these three
+        + message -  The message explaining the status of the response.
+        + total_count - Number of expired records present for the given date. If this number is more than 100 or the size specified in the request, you can use the `next_cursor` from the response as `cursor` in subsequent request to get all the data.
+        + expired_jobs - An array of objects of job data that got expired in the given date. The format  could be JSON or XML, depending upon what was passed in the format field in the query.
+        + next_cursor - The cursor to be used in the next request  to get the subsequent data for the query.
+        + size - Number of records present in the current response.
+
+
+# Group Aggregation API 
+
+* **Each request to this endpoint will consume 100 volume credits.** 
+
+Aggregate data endpoint aggregates the entire data available in Jobspikr based on the query passed and returns the number of job data present for each aggregation. As of now two levels of aggregation is only possible.
+
+#### Fields in Request Header
+
+- client_id `String` `REQUIRED` - This is your unique client identification string to access JobsPikr API
+
+- client_auth_key `String` `REQUIRED` - This is your unique client authentication key to access JobsPikr API
+
+Both `client_id` and `client_auth_key` can be obtained from here. https://app.jobspikr.com/my/api_keys. 
+
+#### Fields in Request Body
+
+- search_query_json (String, REQUIRED) - Search query generated by you for which the data will be returned. This search query string takes a JSON object as input. To know more about how to construct the search query please [read this](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?) or explore our [query builder](https://app.jobspikr.com/my/query_builder). In case of aggregate API, instead of returning the job data for this request, the given aggregation will be applied on top of this query.
+- aggregate_by (String, REQUIRED) - The JSON which instructs the API to aggregate based on the fields provided. Two levels of aggregation are possible. The structure of this object is given below
+
+aggregate_by JSON structure
+
+- ‘field_1’ - (String, REQUIRED) mentions the field on the top of which the top-level aggregation should be done on.
+- ‘size_1’ - (Integer, REQUIRED) mentions the number of aggregated results that should be returned from the API for top level aggregation.
+- field_2 - (String, REQUIRED) mentions the field on the top of which the sub aggregation should be done.
+- ‘size_2’ - (Integer OPTIONAL) mentions the number of aggregated results that should be from API for sub aggregation.
+
+Please note that field_1 or field_2 must be from the following list - ‘company_name’, ‘inferred_country’, ‘post_date’.
+
+If the field parameter is ‘post_date’ then ‘size’ parameter is not required, instead ‘interval’ parameter should be used(value for 'interval' can only be month or quarter.
+
+**Important notes**
+
+W.r.t size.  size parameters(size_1, size_2) when used can’t go above 10000.
+* If only one level of aggregation is used, size_1 should be  <= 10000. 
+* If two level of aggregations are used, **size_1 + (size_1 * size_2)** should be <= 10000
+
+Like other endpoints in  JobsPikr, here too GET and POST both request types will work.
+
+#### Rate Limit
+
+| | |
+|--|--|
+|Maximum number of requests allowed per minute |10|
+|Maximum number of requests allowed per hour|100|
+| | |
+
+Any request beyond the given rate limit will give the following response from the API with the status code 429.
+
+```
+{
+    "status": "error",
+    "message": "Retry later"
+}
+```
+
+## Sample Requests [/aggregate_data]
+
+### Aggregate by company_name and inferred_country [GET]
+
+This example shows how to aggregate job data based on the query 'technical writer' by company name and country.
+
+
++ Request (application/json)
+
+    + Body
+        
+            {
+                "search_query_json": {
+                "query_string": {
+                "default_field": "job_title",
+                "query": "\"technical writer\""
+                }
+                },
+
+                "aggregate_by": {
+                "field_1": "company_name",
+                "size_1": 10,
+                "field_2": "inferred_country",
+                "size_2": 10
+                }
+            }
+            
+            
+
+    + Headers 
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+                
+
+    + Attributes
+    
+        + `search_query_json`: `search_query_json`(string,REQUIRED) - Same as used throughout in jobspikr API, here  instead of returning the job data for this request, the given aggregation will be applied on top of this query.
+        + `aggregate_by`: `aggregate_by` (string,REQUIRED) -  The json which instructs the API to aggregate based on the fields provided. Two levels of aggregation are possible
+
++ Response 200 (application/json)
+
+    + Body
+    
+      {
+    "status": "success",
+    "message": "Data present.",
+    "total_count": 176397,
+    "job_credit_remaining": 1382692,
+    "group_by_field_1": [
+      {
+        "key": "Leidos",
+        "count": 896,
+        "group_by_field_2": [
+          {
+            "key": "United states",
+            "count": 847
+          },
+          {
+            "key": "Australia",
+            "count": 18
+          },
+          {
+            "key": "Usa",
+            "count": 11
+          },
+          {
+            "key": "",
+            "count": 9
+          },
+          {
+            "key": "Egypt",
+            "count": 1
+          },
+          {
+            "key": "Germany",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "key": "Oracle",
+        "count": 788,
+        "group_by_field_2": [
+          {
+            "key": "India",
+            "count": 466
+          },
+          {
+            "key": "United states",
+            "count": 164
+          },
+          {
+            "key": "Canada",
+            "count": 31
+          },
+          {
+            "key": "Czechia",
+            "count": 27
+          },
+          {
+            "key": "Romania",
+            "count": 27
+          },
+          {
+            "key": "Spain",
+            "count": 17
+          },
+          {
+            "key": "Philippines",
+            "count": 14
+          },
+          {
+            "key": "Mexico",
+            "count": 12
+          },
+          {
+            "key": "Austria",
+            "count": 4
+          },
+          {
+            "key": "",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "key": "The Judge Group",
+        "count": 659,
+        "group_by_field_2": [
+          {
+            "key": "United states",
+            "count": 579
+          },
+          {
+            "key": "Usa",
+            "count": 35
+          },
+          {
+            "key": "",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "key": "Apex Systems",
+        "count": 559,
+        "group_by_field_2": [
+          {
+            "key": "United states",
+            "count": 496
+          },
+          {
+            "key": "Usa",
+            "count": 44
+          },
+          {
+            "key": "Canada",
+            "count": 12
+          },
+          {
+            "key": "",
+            "count": 1
+          },
+          {
+            "key": "United kingdom",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "key": "Dice",
+        "count": 541,
+        "group_by_field_2": [
+          {
+            "key": "United states",
+            "count": 541
+          }
+        ]
+      },
+      {
+        "key": "Collabera",
+        "count": 469,
+        "group_by_field_2": [
+          {
+            "key": "United states",
+            "count": 436
+          },
+          {
+            "key": "Australia",
+            "count": 6
+          },
+          {
+            "key": "Usa",
+            "count": 6
+          }
+        ]
+      },
+      {
+        "key": "Robert Half",
+        "count": 412,
+        "group_by_field_2": [
+          {
+            "key": "United states",
+            "count": 375
+          },
+          {
+            "key": "Australia",
+            "count": 18
+          },
+          {
+            "key": "",
+            "count": 7
+          },
+          {
+            "key": "Canada",
+            "count": 7
+          },
+          {
+            "key": "United kingdom",
+            "count": 4
+          }
+        ]
+      },
+      {
+        "key": "iboss",
+        "count": 410,
+        "group_by_field_2": [
+          {
+            "key": "United states",
+            "count": 409
+          }
+        ]
+      },
+      {
+        "key": "SAP",
+        "count": 394,
+        "group_by_field_2": [
+          {
+            "key": "India",
+            "count": 192
+          },
+          {
+            "key": "Germany",
+            "count": 145
+          },
+          {
+            "key": "United states",
+            "count": 16
+          },
+          {
+            "key": "Poland",
+            "count": 13
+          },
+          {
+            "key": "Hungary",
+            "count": 7
+          },
+          {
+            "key": "Bulgaria",
+            "count": 5
+          },
+          {
+            "key": "Finland",
+            "count": 4
+          },
+          {
+            "key": "Israel",
+            "count": 4
+          },
+          {
+            "key": "Canada",
+            "count": 2
+          },
+          {
+            "key": "China",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "key": "Procom",
+        "count": 378,
+        "group_by_field_2": [
+          {
+            "key": "Canada",
+            "count": 366
+          },
+          {
+            "key": "United states",
+            "count": 6
+          },
+          {
+            "key": "United kingdom",
+            "count": 1
+          }
+        ]
+      }
+    ]
+  }
+
+    
+    + Attributes
+
+        + status - The status of the response. It can have one of 2 values - 'success' or 'error' .
+        + message - The message explaining the status of the response
+        + job_credit_remaining - Number of job data that is left to be consumed as per the plan subscription.
+        + group_by_field_1
+            + key - Aggregated value on the field mentioned in the request as the value of field_1.
+            + count - The number of job data carrying the aggregated value
+            + group_by_field_2
+                + key - Aggregated value on the field mentioned in the request as the value of field_2.
+                + count - The number of job data carrying the aggregated value
+
+### Aggregate by company_name and post_date [POST]
+
+This example show how to aggregate job data based on the query 'technical writer' by company name and post_date.
+Since the field parameter is ‘post_date’ then ‘size’ parameter is not required, instead ‘interval’ is used.
+
++ Request (application/json)
+
+    + Body
+        
+            {
+                "search_query_json": {
+                "query_string": {
+                "default_field": "job_title",
+                "query": "\"technical writer\""
+                }
+                },
+
+                "aggregate_by": {
+                "field_1": "company_name",
+                "size_1": 100,
+                "field_2": "post_date",
+                "interval_2": "month"
+                }
+            }
+            
+            
+
+
+    + Headers 
+
+            client_id: Replace with your client_id
+            client_auth_key:  Replace with your client_auth_key
+
+    + Attributes
+    
+        + `search_query_json` : `search_query_json` (string,REQUIRED) - Same as used throught in jobspikr API, here  instead of returning the job data for this request, the given aggregation will be applied on top of this query.
+        + `aggregate_by` : `aggregate_by` (string,REQUIRED) -  The json which instructs the API to aggregate based on the fields provided. Two levels of aggregation are possible
+
++ Response 200 (application/json)
+
+    + Body
+        
+      {
+    "status": "success",
+    "message": "Data present.",
+    "total_count": 176397,
+    "job_credit_remaining": 1382792,
+    "group_by_field_1": [
+      {
+        "key": "Oracle",
+        "count": 687,
+        "group_by_field_2": [
+          {
+            "key": "2019-07-01",
+            "count": 10
+          },
+          {
+            "key": "2019-10-01",
+            "count": 0
+          },
+          {
+            "key": "2020-01-01",
+            "count": 0
+          },
+          {
+            "key": "2020-04-01",
+            "count": 84
+          },
+          {
+            "key": "2020-07-01",
+            "count": 55
+          },
+          {
+            "key": "2020-10-01",
+            "count": 157
+          },
+          {
+            "key": "2021-01-01",
+            "count": 300
+          },
+          {
+            "key": "2021-04-01",
+            "count": 81
+          }
+        ]
+      },
+      {
+        "key": "Leidos",
+        "count": 637,
+        "group_by_field_2": [
+          {
+            "key": "2019-01-01",
+            "count": 7
+          },
+          {
+            "key": "2019-04-01",
+            "count": 0
+          },
+          {
+            "key": "2019-07-01",
+            "count": 0
+          },
+          {
+            "key": "2019-10-01",
+            "count": 0
+          },
+          {
+            "key": "2020-01-01",
+            "count": 81
+          },
+          {
+            "key": "2020-04-01",
+            "count": 122
+          },
+          {
+            "key": "2020-07-01",
+            "count": 148
+          },
+          {
+            "key": "2020-10-01",
+            "count": 95
+          },
+          {
+            "key": "2021-01-01",
+            "count": 53
+          },
+          {
+            "key": "2021-04-01",
+            "count": 127
+          },
+          {
+            "key": "2021-07-01",
+            "count": 4
+          }
+        ]
+      },
+      {
+        "key": "The Judge Group",
+        "count": 622,
+        "group_by_field_2": [
+          {
+            "key": "2019-01-01",
+            "count": 41
+          },
+          {
+            "key": "2019-04-01",
+            "count": 99
+          },
+          {
+            "key": "2019-07-01",
+            "count": 448
+          },
+          {
+            "key": "2019-10-01",
+            "count": 9
+          },
+          {
+            "key": "2020-01-01",
+            "count": 25
+          }
+        ]
+      },
+      {
+        "key": "Dice",
+        "count": 486,
+        "group_by_field_2": [
+          {
+            "key": "2021-01-01",
+            "count": 146
+          },
+          {
+            "key": "2021-04-01",
+            "count": 340
+          }
+        ]
+      },
+      {
+        "key": "iboss",
+        "count": 397,
+        "group_by_field_2": [
+          {
+            "key": "2021-04-01",
+            "count": 397
+          }
+        ]
+      }
+    ]
+  }
+
+    + Attributes
+
+       + status - The status of the response. It can have one of 2 values - 'success' or 'error' .
+        + message - The message explaining the status of the response
+        + job_credit_remaining - Number of job data that is left to be consumed as per the plan subscription.
+        + group_by_field_1
+            + key - Aggregated value on the field mentioned in the request as the value of field_1.
+            + count - The number of job data carrying the aggregated value
+            + group_by_field_2
+                + key - Aggregated value on the field mentioned in the request as the value of field_2.
+                + count - The number of job data carrying the aggregated value
+
+# Group Integration Account Credentials Update API
+
+This endpoint updates AWS S3 credentials for a given jobspikr export. Test file will be uploaded to the folder again using these new credentials to re-verify the account.
+
+## AWS S3 [/jobspikr_integration_accounts/aws_s3_credentials]
+
+### Update AWS S3 credentials Using PUT Requests [PUT]
+
+#### Fields in Request Header
+
+- client_id `String` `REQUIRED` - This is your unique client identification string to access JobsPikr API
+
+- client_auth_key `String` `REQUIRED` - This your unique client authentication key to access JobsPikr API
+
+Both `client_id` and `client_auth_key` can be obtained from here. https://app.jobspikr.com/my/api_keys.
+
+Please note: Sandbox API credentials are restricted while using this endpoint.
+
+#### Fields in Request Body
+
+-  configuration `JSON` `REQUIRED` - This object should have a “credentials” object. More information on this field can be found [here](#reference/examples/integration-account-credentials-api/update-integration-account-credentials-for-aws-s3)
+    - id `INTEGER` `REQUIRED` - The EXPORT ID for which the credential should be updated. The [`export_id` can be found here](https://app.jobspikr.com/my/export_data) 
+    - access_key `REQUIRED` - The new access key which should be updated.
+    - access_secret `REQUIRED` - The new access secret which should be updated.
+
+#### Fields in Response Body
+
+- status - The status of the response. It can be either of these two statuses:
+
+    _'success'_, if the request is processed successfully and the credentials are updated.
+
+    _'error'_ in case of some problem with processing the request.
+
+- message -  The message explaining the status of the response.
+
++ Request (application/json)
+ 
+    + Body
+            
+    {
+        "configuration": {
+            "id": <Export ID>,
+            "access_key": <new access_key>,
+            "access_secret": <new access_secret>
+            }
+    }
+
+        
++ Headers
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
++ Response 200 (application/json)
+    
+    + Body
+    
+            {
+                "status": "success",
+                "message": "Credentials updated successfully!",
+            }
+        
++ Attributes
+        + status - Status of the response. It can have one of the 2 values : 'success', 'error'
+        + message - Message explaining the status of the response
+
+# Group Examples
+
+## Job Search API [/data]
+
+In this section we'll cover some common use cases. You may use these as starting template and try out various changes. Another helpful tool for playing around with query is
+our API Query Builder at https://app.jobspikr.com/my/query_builder
+
+### Get all jobs with marketing in title [POST]
+
+To get all jobs with marketing in title we can use `query_string` query. This query takes `default_field or fields` mentioning the field(s) where the query should be run and `query`
+which mentions the value that needs to be matched. In this case the query will look like this
+```
+    "query_string": {
+        "default_field": "job_title",
+        "query": "marketing"
+    }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "cursor": 1549411216369936,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "marketing"
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'XML'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+    
++ Response 200 (application/json)
+    
+
+### Get all jobs with marketing in title in XML format [POST]
+
+Our API responses can be of _json_ of _xml_. By default all our API responses are in _json_ format. If we need get the results
+in _xml_ format we can use the `format` parameter with the value as `xml`.
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "format": "xml",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "marketing"
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'XML’. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
++ Response 200 (application/json)
+
+    
+### Get all jobs with sales in description [POST]
+
+To get all the jobs with _sales_ in the description, we can use `query_string` query with `job_description` as the value for the `default_field`.
+```
+    "query_string": {
+        "default_field": "job_description",
+        "query": "sales"
+    }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_description",
+                    "query": "sales"
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
++ Response 200 (application/json)
+
+### Find all jobs with "python developer" in job title [POST]
+
+When we want to find all jobs with "python developer" or any phrase in the same order of words we should enclose the phrase in double quotes 
+while providing it as a value to the query in the query_string object. This is quering for exact match.
+
+```
+  "query_string": {
+    "fields": "job_title",
+    "query": "\"python developer\""
+  }
+
+```
+*Note:* In this case, if double quotes are not used around the phrase(python developer), then all the jobs that have either python or developer or 
+both in any order would be returned as response from the API.
+
++ Request (application/json)
+  
+    + Body
+            
+         {
+                "size": 50,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "\"python developer\""
+                                    }
+                                }
+            }
+        
+        
+    + Headers
+    
+    
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+    
+### Find all jobs with "java developer" in either job title or job description [POST]
+
+When we want to find the presence of a word or phrase in more than one field, we should pass those field names as an array to `fields` in the `query_string` query object.
+Here we should pass `["job_title", "job_description"]` as value to `fields` 
+
+```
+  "query_string": {
+    "fields": ["job_title", "job_description"],
+    "query": "\"java developer\""
+  }
+
+```
+
++ Request (application/json)
+  
+    + Body
+            
+         {
+                "size": 50,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "fields": ["job_title", "job_description"],
+                    "query": "\"java developer\""
+                                    }
+                                }
+            }
+        
+        
+    + Headers
+    
+    
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+    
+
+### Find all jobs with sales or marketing in title [POST]
+
+To get all the jobs with either sales or marketing present in the title we can join those words with the keyword `OR` while passing as value to the query.
+```
+"query_string": {
+    "fields": "job_title""
+    "query": "sales OR marketing"
+  }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "cursor": 1549411216369936,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "sales OR marketing"
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find all jobs with "python developer" or "java developer" in title [POST]
+
+To get all the jobs with either "python developer" or "java developer" present in the title we can use the same `OR` keyword between the phrases and pass it as value to the query.
+```
+"query_string": {
+    "fields": "job_title",
+    "query": "\"python developer\"" OR "\"java developer\""
+  }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "format": "json",
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "\"sales manager\" OR \"marketing manager\""
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+
++ Response 200 (application/json)
+
+
+### Find all jobs from London, United Kingdom [POST]
+
+To get all the jobs from 'London, United Kingdom', we have to use `bool` query with `must` condition. The query will look like this
+```
+  "bool": {
+    "must": [
+      {
+        "query_string": {
+          "fields": [
+            "country",
+            "inferred_country"
+          ],
+          "query": "\"United Kingdom\" OR \"England\" OR \"UK\""
+        }
+      },
+      {
+        "query_string": {
+          "fields": [
+            "city",
+            "inferred_city"
+          ],
+          "query": "\"London\""
+        }
+      }
+    ]
+  }
+```
+* Here there are two queries inside must, each checking for country match and city match respectively. We use `must`, because, the results returned
+will satisfy both the queries specified inside must.
+* Instead of just city London, we check for city London and country United Kingdom because city names are not unique. There are city with name 'London' in
+The United States and Canada as well. Hence to be more specific we use both city and country.
+* We search for 'London' in both  “city” and “inferred city” fields and 'United Kingdom' in both “country” and “inferred country” fields to give us better coverage.
+* Try to use all city, state and country along with respective inferred fields in all your custom queries for better results.
+
+
++ Request (application/json)
+  
+    + Body
+            
+        {
+            "size": 50,
+            "format": "json",
+            "search_query_json": {
+                "bool": {
+                    "must": [
+                        {
+                            "query_string": {
+                                "fields": [
+                                    "country",
+                                    "inferred_country"
+                                ],
+                                "query": "\"United Kingdom\" OR \"England\" OR \"UK\""
+                            }
+                        },
+                        {
+                            "query_string": {
+                                "fields": [
+                                    "city",
+                                    "inferred_city"
+                                ],
+                                "query": "\"London\""
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        
+    + Headers
+    
+    
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when a number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find all jobs from Texas, United States [POST]
+
+To get all the jobs from 'Texas, United States', we have to use the same `bool` query with `must` condition. The query will look like this
+```
+    "bool": {
+      "must": [
+        {
+          "query_string": {
+            "fields": [
+              "country",
+              "inferred_country"
+            ],
+            "query": "\"United Kingdom\" OR \"England\" OR \"UK\""
+          }
+        },
+        {
+          "query_string": {
+            "fields": [
+              "city",
+              "inferred_city"
+            ],
+            "query": "\"London\""
+          }
+        }
+      ]
+    }
+
+```
+
+
++ Request (application/json)
+  
+    + Body
+            
+        {
+            "size": 50,
+            "format": "json",
+            "search_query_json": {
+                "bool": {
+                    "must": [
+                        {
+                            "query_string": {
+                                "fields": [
+                                    "country",
+                                    "inferred_country"
+                                ],
+                                "query": "\"United States\" OR \"USA\" OR \"United States\" OR \"US\""
+                            }
+                        },
+                        {
+                            "query_string": {
+                                "fields": [
+                                    "state",
+                                    "inferred_state"
+                                ],
+                                "query": "\"Texas\" OR \"tx\""
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find all jobs from  Sydney, Australia OR Seattle, USA [POST]
+
+To get the jobs from different location we should use `bool` query with `should` condition. Inside should we should use multiple `bool` queries with `must`
+as given in the previous example. For the given example, to find all jobs from Sydney, Australia OR Seattle, USA, the `bool` query will look like the following.
+```
+  {
+    "bool": {
+      "should": [
+        {
+          "bool": {
+            "must": [
+              {
+                "query_string": {
+                  "fields": [
+                    "country",
+                    "inferred_country"
+                  ],
+                  "query": "\"Australia\""
+                }
+              },
+              {
+                "query_string": {
+                  "fields": [
+                    "state",
+                    "inferred_state"
+                  ],
+                  "query": "\"New South Wales\""
+                }
+              },
+              {
+                "query_string": {
+                  "fields": [
+                    "city",
+                    "inferred_city"
+                  ],
+                  "query": "\"Sydney\""
+                }
+              }
+            ]
+          }
+        },
+        {
+          "bool": {
+            "must": [
+              {
+                "query_string": {
+                  "fields": [
+                    "country",
+                    "inferred_country"
+                  ],
+                  "query": "\"United States\" OR \"USA\" OR \"United States\" OR \"US\""
+                }
+              },
+              {
+                "query_string": {
+                  "fields": [
+                    "state",
+                    "inferred_state"
+                  ],
+                  "query": "\"Washington\" OR \"wa\""
+                }
+              },
+              {
+                "query_string": {
+                  "fields": [
+                    "city",
+                    "inferred_city"
+                  ],
+                  "query": "\"Seattle\""
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+```
+Here the `should` condition acts as `OR` and must condition acts as `AND`. Hence the query that is given above states
+```
+    ((city: Sydney) AND (state: New South Wales) AND (country: Australia)) OR ((city: Seattle) AND (state: Washington) AND (country: United States))
+```
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "search_query_json": {
+        "bool": {
+          "should": [
+            {
+              "bool": {
+                "must": [
+                  {
+                    "query_string": {
+                      "fields": [
+                        "country",
+                        "inferred_country"
+                      ],
+                      "query": "\"Australia\""
+                    }
+                  },
+                  {
+                    "query_string": {
+                      "fields": [
+                        "state",
+                        "inferred_state"
+                      ],
+                      "query": "\"New South Wales\""
+                    }
+                  },
+                  {
+                    "query_string": {
+                      "fields": [
+                        "city",
+                        "inferred_city"
+                      ],
+                      "query": "\"Sydney\""
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "bool": {
+                "must": [
+                  {
+                    "query_string": {
+                      "fields": [
+                        "country",
+                        "inferred_country"
+                      ],
+                      "query": "\"United States\" OR \"USA\" OR \"United States\" OR \"US\""
+                    }
+                  },
+                  {
+                    "query_string": {
+                      "fields": [
+                        "state",
+                        "inferred_state"
+                      ],
+                      "query": "\"Washington\" OR \"wa\""
+                    }
+                  },
+                  {
+                    "query_string": {
+                      "fields": [
+                        "city",
+                        "inferred_city"
+                      ],
+                      "query": "\"Seattle\""
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+        
++ Headers
+
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find all jobs where salary exists [POST]
+
+Not all the job records have a `salary_offered` field since they are not provided in the source page itself. To get only jobs that have `salary_offered`
+Fthe field we can use the `exists` query specifying the field name as a value for the `field` key in the query.
+```
+    "exists": {
+      "field": "salary_offered"
+    }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+        "size": 50,
+        "format": "json",
+        "search_query_json": {
+            "exists": {
+                "field": "salary_offered"
+            }
+        }
+    }
+
+        
+    + Headers
+                
+                
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+
++ Response 200 (application/json)
+
+### Find all jobs where any one of the contact details exists [POST]
+
+Like `salary_offered` field, not all the job records have `contact_email` and `contact_phone_number` fields since they are not provided in the source page itself. 
+To get only jobs that have either `contact_email` or `contact_phone_number` or both, we can use the `exists` query inside a `bool` query with `should` condition.
+```
+    "exists": {
+      "field": "salary_offered"
+    }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "size": 50,
+      "format": "json",
+      "search_query_json": {
+        "bool": {
+          "should": [
+            {
+              "exists": {
+                "field": "contact_phone_number"
+              }
+            },
+            {
+              "exists": {
+                "field": "contact_email"
+              }
+            }
+          ]
+        }
+      }
+    }
+
+
+        
+    + Headers
+                
+                
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+
++ Response 200 (application/json)
+
+
+### Find all the jobs which don't have Undefined in the job type [POST]
+
+Few of the job records have 'Undefined' as the value for `job_type` field. This is because not all the jobs have a job type mentioned in the source URL.
+If we want to get only the job records which have a valid `job_type` mentioned, we can query for all jobs that don’t have 'Undefined' as the job type.
+
+To ignore records based on the value we can use `bool` query with `must_not` condition. The query for our use case will look like below
+```
+        "bool": {
+          "must_not": [
+            {
+              "query_string": {
+                "fields": [
+                  "job_type"
+                ],
+                "query": "undefined"
+              }
+            }
+          ]
+        }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "size": 50,
+      "format": "json",
+      "search_query_json": {
+        "bool": {
+          "must_not": [
+            {
+              "query_string": {
+                "fields": [
+                  "job_type"
+                ],
+                "query": "undefined"
+              }
+            }
+          ]
+        }
+      }
+    }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find all the jobs posted between 1st July 2019 and 7th July 2019 [POST]
+
+To find all the jobs posted between a date range, we can use the range query. Since we have to find a job between a date range based on `post_date`, we should
+mention it as the field in the range query.
+```
+    {
+      "range": {
+        "post_date": {
+          "gte": "2019-07-01",
+          "lte": "2019-07-07"
+        }
+      }
+    }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "format": "json",
+                "search_query_json": {
+                    "range": {
+                        "post_date": {
+                        "gte": "2019-07-01",
+                        "lte": "2019-07-07"
+                                    }
+                                }
+                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+### Find all jobs posted in last 10 days [POST]
+
+To get all the which is posted in the last 10 days, we can do a relative date query.
+
++ Request (application/json)
+  
+    + Body
+
+        {
+            "size": 50,
+            "format": "json",
+            "search_query_json": {
+                "bool": {
+                    "must": [
+                        {
+                            "range": {
+                                "post_date": {
+                                    "gte": "now-10d/d",
+                                    "lte": "now"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+
+    
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+### Find all jobs posted between 1st July 2019 and 7th July 2019 and has salary offered field present [POST]
+
+To get all the jobs which are posted between a specific date range and has a salary offered field present, we can use `bool` query with `must` condition.
+
++ Request (application/json)
+  
+    + Body
+
+        {
+            "size": 50,
+            "format": "json",
+            "search_query_json": {
+                "bool": {
+                    "must": [
+                        {
+                            "range": {
+                                "post_date": {
+                                    "gte": "2019-07-01",
+                                    "lte": "2019-07-07"
+                                }
+                            }
+                        },
+                        {
+                            "exists": {
+                                "field": "salary_offered"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+
+    
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+### Find all valid jobs(the ones which have not expired) [POST]
+
+To get only valid jobs i.e, job which are not expired, we can use `query_string` query to get all the jobs where the `has_expired` field is false
+```
+ "query_string": {
+    "default_field": "has_expired",
+    "query": false
+ }
+```
+
++ Request (application/json)
+  
+    + Body
+            
+      {
+        "size": 50,
+        "format": "json",
+        "search_query_json": {
+          "query_string": {
+            "default_field": "has_expired",
+            "query": false
+          }
+        }
+      }
+
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+    
+
+### How to get only unique jobs after ignoring duplicates [POST]
+
+* Applicable only for Growth Plan & Above
+
+To get all the unique jobs deduplicated across the sources(job boards and websites) we can use `exclude_duplicates` parameter in the query.
+This parameter should be used in the same level as `search_query_json` and `cursor`.
+It can be used only by organizations that are in _Business Plan or Above_.
+
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "cursor": 1549411216369936,
+                "format": "json",
+                "exclude_duplicates": true
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "\"technical writer\""
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+### Get all jobs posted on job boards as well as F500 company sites [POST]
+
+* Applicable only for Enterprise plan(released 07 Sept 2020)
+
+To get all the jobs posted on job board and f500 company  websites,we can use `dataset` parameter in the query wiht the value ['job_board', 'f500'].
+Even if the dataset is paramter is not specified, data from both job board sites and f500 sites will be returned in the response by default, the client plan has f500 sites access.
+This parameter should be used in the same level as `search_query_json` and `cursor`.
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "cursor": 1549411216369936,
+                "format": "json",
+                "dataset": ["job_board", "f500"],
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "\"technical writer\""
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)    
+
+### Get jobs only from to F500 company websites [POST]
+
+* Applicable only for Enterprise plan(released 07 Sept 2020)
+
+To get all the jobs posted only on company sites, we can use `dataset` parameter in the query with the value ['f500'].
+When the your plan has access to f500 dataset, by default when dataset params in not used in the request, both job board data and f500 data is returned in the API response.
+If you need to get only jobs from f500 company websites, then you can specify 'dataset' : ['f500'] in the request.
+This parameter should be used in the same level as `search_query_json` and `cursor`.
+
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "size": 50,
+                "cursor": 1549411216369936,
+                "format": "json",
+                "dataset": ["f500"],
+                "search_query_json": {
+                "query_string": {
+                    "default_field": "job_title",
+                    "query": "\"technical writer\""
+                                    }
+                                }
+            }
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)    
+
+### Get all jobs posted by companies(not agencies) [POST]
+
+* Applicable only for Business and Above plan(released 21 Oct 2020)
+
+To get all the jobs posted by companies, we can use `inferred_company_type` field in the `query_string` query.
+
+The example show how to fetch all the "python developer" jobs posted by companies. To get all the jobs posted by agenices instead of passing "company" as the value for query, we should send "agency".
+
+Old records(jobs posted before October) doesn't have these fields, hence querying with this field will yeild very less number of records.
+
++ Request (application/json)
+  
+    + Body
+            
+            {
+                "search_query_json": {
+                    "bool": {
+                        "must": [
+                            {
+                                "query_string": {
+                                    "default_field": "job_title",
+                                    "query": "\"python developer\""
+                                }
+                            },
+                            {
+                                "query_string": {
+                                    "default_field": "inferred_company_type",
+                                    "query": "company"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)    
+
+### Get "sales manager" jobs where inferred maximum experience needed is less than 5 years [POST]
+
+To get all the "sales manager" jobs where max experience needed is less than 5 years, we can use `inferred_max_experience` field in the query.
+
+The example shows how to fetch all the "sales manager" jobs which has max experience criteria lesser than 5 years. If you want to get all jobs needed minimum 3 years of experience we can use `inferred_min_experince` field and query for values lesser than 3. 
+
+Old records(jobs posted before Feb 2021) doesn't have these fields, hence querying with this field will yeild very less number of records.
+
++ Request (application/json)
+  
+    + Body
+
+    {
+    "search_query_json": {
+        "bool": {
+            "must": [
+                {
+                    "range": {
+                        "inferred_max_experience": {
+                            "gte": "5"
+                        }
+                    }
+                },
+                {
+                    "query_string": {
+                        "default_field": "job_title",
+                        "query": "\"sales manager\""
+                    }
+                }
+            ]
+        }
+    }
+    }
+    
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search_query_json?)
+
+    
++ Response 200 (application/json)
+
+### Get all "Mid Level" jobs, where inferred minimum experience required is higher than 8 years [POST]
+
+
+To get all the "Mid Level" jobs in terms of seniority, we can use `inferred_seniority_level` field in the query.
+
+The example shows how to fetch all the "Mid Level" jobs which has minum experience criteria higher than 8 years.
+
+Old records(jobs posted before Feb 2021) doesn't have these fields, hence querying with this field will yeild very less number of records.
+
++ Request (application/json)
+  
+    + Body
+
+    {
+    "search_query_json": {
+        "bool": {
+            "must": [
+                {
+                    "range": {
+                        "inferred_min_experience": {
+                            "gte": "8"
+                        }
+                    }
+                },
+                {
+                    "query_string": {
+                        "default_field": "inferred_seniority_level",
+                        "query": "\"mid level\""
+                    }
+                }
+            ]
+        }
+    }
+    }
+    
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+### Get all "developer" jobs, where inferred skills are "java", "oracle" and "sql" [POST]
+
+
+To get all the jobss which matches given list of skills, we can use `inferred_skills` field in the query.
+
+The example shows how to fetch all the "developer" jobs which the following required skills - Java, Oracle, and Sql. 
+
+
++ Request (application/json)
+  
+    + Body
+
+    {
+    "search_query_json": {
+        "bool": {
+            "must": [
+                {
+                    "query_string": {
+                        "default_field": "inferred_skills",
+                        "query": "\"Java\" AND \"Oracle\" AND \"Sql\""
+                    }
+                },
+                {
+                    "query_string": {
+                        "default_field": "job_title",
+                        "query": "developer"
+                    }
+                }
+            ]
+        }
+    }
+    }
+
+    
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+### Get all jobs where the salary is more than $15 per hour related to warehousing [POST]
+
+
+To get all the jobs where the salary is more than $15 per hour, we can use `inferred_salary` fields in the query.
+
+The `inferred_salary_from` and `inferred_salary_to` denotes the starting and ending salary range. `inferred_salary_time_unit` mentions if the salary mentioned is for a year or month or week or hour. `inferred_salary_currency` mentions the currency the salary is paid. We can filter based on all the fields in a single query or use any one of these fields in the query along with other fields.
+
+The example shows how to fetch all the jobs which has "warehouse" in the job title and have starting salary above 15 and salary currency is in USD and the salary is mentioned for per hour basis. 
+
+
++ Request (application/json)
+  
+    + Body
+
+    {
+    "search_query_json": {
+        "bool": {
+            "must": [
+                {
+                    "range": {
+                        "inferred_salary_from": {
+                            "gte": "15"
+                        }
+                    }
+                },
+                {
+                    "query_string": {
+                        "default_field": "inferred_salary_time_unit",
+                        "query": "hourly"
+                    }
+                },
+                {
+                    "query_string": {
+                        "default_field": "inferred_salary_currency",
+                        "query": "USD"
+                    }
+                },
+                {
+                    "query_string": {
+                        "default_field": "job_title",
+                        "query": "warehouse"
+                    }
+                }
+            ]
+        }
+    }
+    }
+
+
+    
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. The default value is 100
+    + cursor (optional, string) - It is used for pagination when the number of records are more than 100. Please check the details in the introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'JSON' or 'xml'. This is an optional parameter with a default value of 'JSON'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find all 'product manager' jobs from USA  [POST]
+
+To find all the 'product manager' jobs from the United States, we can use `bool` query and join the 'product manager' query and 'United States' query with a `must` condition.
+
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "size": 50,
+      "format": "json",
+      "search_query_json": {
+        "bool": {
+          "must": [
+            {
+              "query_string": {
+                "default_field": "job_title",
+                "query": "\"product manager\""
+              }
+            },
+            {
+              "query_string": {
+                "fields": [
+                  "country",
+                  "inferred_country"
+                            ],
+                            "query": "\"United States\" OR \"USA\" OR \"United States\" OR \"US\""
+              }
+            }
+          ]
+        }
+      }
+    }
+      
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find "Data Scientist" jobs from Australia or Newzealand [POST]
+
+To find all the 'data scientist' jobs from Australia or New Zealand, we can use `bool` query and join the 'data scientist' query and 'Australia OR New Zealand' query with a `must` condition.
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "size": 50,
+      "format": "json",
+      "search_query_json": {
+        "bool": {
+          "must": [
+            {
+              "query_string": {
+                "default_field": "job_title",
+                "query": "\"data scientist\""
+              }
+            },
+            {
+              "query_string": {
+                "fields": [
+                  "country",
+                  "inferred_country"
+                            ],
+                            "query": "\"Australia\" OR \"New Zealand\""
+              }
+            }
+          ]
+        }
+      }
+    }
+
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find "Marketing Manager" jobs across United Kingdom, excluding London. [POST]
+
+To get all the "marketing manager" jobs from UK excluding London, we should use `bool` query with combination of `must` and `must_not`, mentioning the title 
+and the country in the `must` and mentioning the city in `must_not`
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+        "size": 50,
+        "format": "json",
+        "search_query_json": {
+          "bool": {
+            "must": [
+              {
+                "query_string": {
+                  "default_field": "job_title",
+                  "query": "\"marketing manager\""
+                }
+              },
+              {
+                "query_string": {
+                  "fields": [
+                    "country",
+                    "inferred_country"
+                  ],
+                  "query": "\"United Kingdom\" OR \"England\" OR \"Scotland\" OR \"Northern Ireland\" OR \"Wales\" OR \"UK\" OR \"United Kingdom\""
+                }
+              }
+            ],
+            "must_not": [
+              {
+                "query_string": {
+                  "fields": [
+                    "city",
+                    "inferred_city"
+                  ],
+                  "query": "\"London\""
+                }
+              }
+            ]
+          }
+        }
+      }
+
+
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Jobs with title manager, but excluding sales in both title and description [POST]
+
+To get all the jobs with 'manager' in the title, but should have the keyword 'sales' in title or description, we can use `bool` query with a
+combination of `must` and `must_not` as given in the previous example.
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "size": 50,
+      "format": "json",
+      "search_query_json": {
+        "bool": {
+          "must": [
+            {
+              "query_string": {
+                "default_field": "job_title",
+                "query": "\"manager\""
+              }
+            }
+          ],
+          "must_not": [
+            {
+              "query_string": {
+                "fields": [
+                  "job_title",
+                  "job_description"
+                            ],
+                            "query": "sales"
+              }
+            }
+          ]
+        }
+      }
+    }
+
+
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+
+### Find all 'java developer' remote jobs  [POST]
+
+To find all the 'java developer' remote jobs, we can use `bool` query and join the 'java developer' query and 'remote' query with a `must` condition.
+
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "size": 50,
+      "format": "json",
+      "search_query_json": {
+        "bool": {
+          "must": [
+            {
+              "query_string": {
+                "default_field": "job_title",
+                "query": "\"java developer\""
+              }
+            },
+            {
+              "query_string": {
+                "default_field": "is_remote",
+                "query": true
+              }
+            }
+          ]
+        }
+      }
+    }
+      
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+### Find all jobs from 'manufacturing' department  [POST]
+
+To find all the jobs from 'manufacturing' deparment, we can query for `inferred_department_name` to be 'manufacturing'.
+
+Note: As of now we've have only a defined [set of department](#reference/departments-list)
+
++ Request (application/json)
+  
+    + Body
+            
+    {
+      "size": 50,
+      "format": "json",
+      "search_query_json": {
+        "query_string": {
+          "default_field": "inferred_department_name",
+          "query": "\"manufacturing\""
+        }
+      }
+    }
+      
+        
+    + Headers
+    
+
+                client_id: Replace with your client_id
+                client_auth_key:  Replace with your client_auth_key
+
+    
++ Attributes
+
+    + size: 100  (optional,number) - number of records to be returned for this request. Can be any integer between 10 and 100. Default value is 100
+    + cursor (optional,string) - It is used for pagination when number of records are more than 100. Please check the details in introduction section of API 
+    + format: json (string) - Format of the response from API. It can be either 'json' or 'xml'. This is an optional parameter with a default value of 'json'
+    + search_query_json - String, this is the heart of query and supports elasticsearch query-dsl. You may [find more details here](#introduction/frequently-asked-questions/where-can-i-get-more-details-about-search-query-json?)
+
+    
++ Response 200 (application/json)
+
+## Aggregation API [/aggregate_data]
+
+### Get top 1000 company_name(by count) in US, posted in the month of April 2021 [POST]
+
+To find the top 100 company_names by the number of job data count posted during the month of April 2021 in United States, we need to query for jobs posted in USA
+in the month of April 2021 and then do a single level aggregation on top of company_name
+
++ Request (application/json)
+
+    + Body
+    
+  {
+    "format": "json",
+    "size": 50,
+    "search_query_json": {
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "should": [
+                {
+                  "bool": {
+                    "must": [
+                      {
+                        "query_string": {
+                          "fields": [
+                            "country",
+                            "inferred_country"
+                          ],
+                          "query": "\"United States\" OR \"USA\" OR \"United States\" OR \"US\""
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "range": {
+              "post_date": {
+                "gte": "2021-04-01",
+                "lte": "2021-04-30"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "aggregate_by": {
+      "field_1": "company_name",
+      "size_1": 1000
+    }
+  }
+
+
+    + Headers 
+
+            client_id: Replace with your client_id
+            client_auth_key:  Replace with your client_auth_key
+
+    + Attributes
+    
+        + `search_query_json` : `search_query_json` (string,REQUIRED) - Same as used throught in jobspikr API, here  instead of returning the job data for this request, the given aggregation will be applied on top of this query.
+        + `aggregate_by` : `aggregate_by` (string,REQUIRED) -  The json which instructs the API to aggregate based on the fields provided. Two levels of aggregation are possible
+
++ Response 200 (application/json)
+
+### Get top 10 citites and 100 company_name(by count) for each of those cities for the jobs posted in india [POST]
+
+To find the top 10 cities and the top 100 compamies in each of those cicites by the number of job data count
+we need to do a two level aggregation on top of inferred_city as field_1 and company_name as field_2
+
++ Request (application/json)
+
+    + Body
+    
+  {
+    "format": "json",
+    "size": 50,
+    "search_query_json": {
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "should": [
+                {
+                  "bool": {
+                    "must": [
+                      {
+                        "query_string": {
+                          "fields": [
+                            "country",
+                            "inferred_country"
+                          ],
+
+                        "query": "\"India\""
+
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "range": {
+              "post_date": {
+                "gte": "2021-04-01",
+                "lte": "2021-04-30"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "aggregate_by": {
+      "field_1": "inferred_city",
+     "size_1": 10,
+        "field_2": "company_name",
+        "size_2": 100
+    }
+  }
+
+
+    + Headers 
+
+            client_id: Replace with your client_id
+            client_auth_key:  Replace with your client_auth_key
+
+    + Attributes
+    
+        + `search_query_json` : `search_query_json` (string,REQUIRED) - Same as used throught in jobspikr API, here  instead of returning the job data for this request, the given aggregation will be applied on top of this query.
+        + `aggregate_by` : `aggregate_by` (string,REQUIRED) -  The json which instructs the API to aggregate based on the fields provided. Two levels of aggregation are possible
+
++ Response 200 (application/json)
+
+## Expired Jobs API [/expired_jobs]
+
+### Get all previously consumed jobs expired on 24th April 2021 [POST]
+
+To get all previously consumed jobs expired on 24th of April, we can send request to expired_jobs api endpoint with date parameter
+
++ Request (application/json)
+
+    + Body
+    
+    {
+        "size": 10,
+        "date": "2021-04-24"
+    }
+
+
+    + Headers 
+
+            client_id: Replace with your client_id
+            client_auth_key:  Replace with your client_auth_key
+
+    + Attributes
+    
+        + `size` : `size` (number,OPTIONAL) - The number of records to be returned for this request. It can be between 10 and 100
+        + `date` : `date` (string,OPTIONAL) -  The date on which the expired jobs should be queried.
+
++ Response 200 (application/json)
+
+### Get all previously consumed jobs expired between 10th May 2021 to 15th May 2021 [POST]
+
+To get all previously consumed jobs expired between 10th of May 2021 to 15th of May 2021, we can send request to expired_jobs api endpoint with `from_date` and `to_date` parameter in the request body.
+
++ Request (application/json)
+
+    + Body
+    
+    {
+        "size": 10,
+        "from_date": "2021-05-10",
+        "to_date": "2021-05-15"
+    }
+
+
+    + Headers 
+
+            client_id: Replace with your client_id
+            client_auth_key:  Replace with your client_auth_key
+
+    + Attributes
+    
+        + `size` : `size` (number,OPTIONAL) - The number of records to be returned for this request. It can be between 10 and 100
+        + `from_date` : `date` (string,OPTIONAL) -  The date from which the expired jobs should be queried.
+        + `to_date` : `date` (string,OPTIONAL) -  The date to which the expired jobs should be queried.
+        
++ Response 200 (application/json)
+
+## Integration Account Credentials API [/jobspikr_integration_accounts/aws_s3_credentials]
+
+### Update Integration account credentials for AWS S3 [PUT]
+
+Following are the parameters that need to be sent inside the configuration parameter. In this case the query will look like this:
+```
+    "configuration": {
+        "id": <export id>,
+        "access_key": "<new access_key>",
+"access_secret": "<new access_secret>"
+
+    }
+```
+
+- id `Int` `REQUIRED` - ID of the jobspikr integration whose account credentials you want to update. It can be [found here](https://app.jobspikr.com/my/export_data)
+
+- access_key `String` `REQUIRED`- New “access_key” of aws s3 account.
+
+- access_secret `String` `REQUIRED` - New “access_secret” of aws s3 account
+
++ Request (application/json)
+
+    + Body
+    
+    {
+        "id": 10,
+        "access_key": "XXXXXXXXXXX",
+        "access_secret": "XXXXXXXXXXXXXXXXXXXXXXXX"
+    }
+
+
+    + Headers 
+
+            client_id: Replace with your client_id
+            client_auth_key:  Replace with your client_auth_key
+
+    + Attributes
+    
+        + `id` : `size` (number,REQUIRED) - Id of the integration(export configuration) can be [found here](https://app.jobspikr.com/my/export_data) 
+        + `access_key` : `date` (string,REQUIRED) -  The new access key that should be updated.
+        + `access_secret` : `date` (string,REQUIRED) -  The new access secret that should be updated.
+        
++ Response 201 (application/json)
+
+
+# Group Departments List
+
+Following are the list of departments we recognize
+
+- Agriculture
+- Legal
+- ScienceAndEnergy
+- HR
+- Education
+- Marketing
+- Publishing
+- Facilities
+- Internet
+- Manufacturing
+- Admin
+- IT
+- Sales
+- Accounts
+- Retail
+- CustomerService
+- ServiceAndSecurity
+- Electrical
+- Finance
+- Travel
+- Healthcare
+- Hospitality
+- RealEstate
+- Restaurant
+- ArtAndArchitecture
+
+# Group Skills List
+
+Please find the entire list  of skills that we recognize in this link https://app.jobspikr.com/skill_set_.txt
