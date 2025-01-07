@@ -42,8 +42,6 @@ export class NiceboardJobTypeService {
         response.data.results.jobtypes.forEach(jobType => {
           this.jobTypesCache.set(jobType.name.toLowerCase(), jobType.id);
         });
-
-        console.log('Loaded job types:', Array.from(this.jobTypesCache.entries()));
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {

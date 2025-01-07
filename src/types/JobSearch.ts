@@ -88,6 +88,24 @@ export interface SavedQueryResult {
   jobs: JobsPikrJob[];
 }
 
+export interface ProcessedJob {
+  title: string;         // maps to job_title
+  company: string;       // maps to company_name
+  city?: string;
+  state?: string;
+  country?: string;
+  job_type: string;
+  is_remote: string;     // "Yes" or "No" for CSV readability
+  salary_min?: number;   // maps to inferred_salary_from
+  salary_max?: number;   // maps to inferred_salary_to
+  salary_currency?: string;
+  salary_period?: string;
+  description: string;   // maps to html_job_description or job_description
+  apply_url: string;
+  apply_email: string;
+  post_date: string;
+  original_url: string;  // maps to url
+}
 export interface QuerySummaryStats {
   name: string;
   description: string;
@@ -108,23 +126,6 @@ export interface DailySummary {
   queries: Record<string, QuerySummaryStats>;
   totalJobs: number;
   queryCount: number;
-}
-
-export interface ProcessedJob {
-  title: string;
-  company: string;
-  location: string;
-  job_type: string;
-  is_remote: string;
-  salary_min?: number;
-  salary_max?: number;
-  salary_currency?: string;
-  salary_period?: string;
-  description: string;
-  apply_url: string;
-  apply_email: string;
-  post_date: string;
-  original_url: string;
 }
 
 export interface ApiErrorResponse {

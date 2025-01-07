@@ -91,6 +91,18 @@ export interface JobTypesResponse {
 export interface CreateJobTypePayload {
   name: string;
 }
+export interface Location {
+  id: number;
+  name: string;
+}
+
+export interface LocationResponse {
+  error: boolean;
+  results?: {
+    total_count: number;
+    locations: Location[];
+  };
+}
 
 export type SalaryTimeframe = 'annually' | 'monthly' | 'hourly' | 'weekly';
 export type JobsPikrTimeUnit = 'yearly' | 'monthly' | 'weekly' | 'hourly' | 'daily';

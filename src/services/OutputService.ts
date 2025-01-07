@@ -49,7 +49,9 @@ export class OutputService {
     return jobs.map(job => ({
       title: job.job_title,
       company: job.company_name,
-      location: [job.city, job.state, job.country].filter(Boolean).join(', '),
+      city: job.city,
+      state: job.state,
+      country: job.country,
       job_type: job.job_type || 'Not specified',
       is_remote: job.is_remote ? 'Yes' : 'No',
       salary_min: job.inferred_salary_from,
@@ -62,7 +64,7 @@ export class OutputService {
       post_date: job.post_date,
       original_url: job.url
     }));
-  }
+}
 
   private async processQueryResults(dateDir: string, queryName: string, result: SavedQueryResult): Promise<QuerySummaryStats> {
     if (result.jobs.length > 0) {
@@ -143,22 +145,33 @@ export class OutputService {
     });
 
     return records.map((record: any) => ({
+      // Mandatory fields according to the API blueprint
+      crawl_timestamp: new Date().toISOString(),
+      url: record.original_url,
       job_title: record.title,
       company_name: record.company,
-      url: record.original_url,
-      html_job_description: record.description,
-      apply_url: record.apply_url,
-      contact_email: record.apply_email,
       post_date: record.post_date,
-      job_type: record.job_type,
-      is_remote: record.is_remote === 'Yes',
-      inferred_salary_from: record.salary_min ? Number(record.salary_min) : undefined,
-      inferred_salary_to: record.salary_max ? Number(record.salary_max) : undefined,
-      inferred_salary_time_unit: record.salary_period,
-      inferred_salary_currency: record.salary_currency,
-      crawl_timestamp: new Date().toISOString(),
       uniq_id: crypto.randomUUID(),
-      job_board: 'manual_import'
+      job_board: 'manual_import',
+      
+      // Optional fields
+      city: record.city,
+      state: record.state,
+      country: record.country,
+      job_description: record.description,
+      html_job_description: record.description,
+      job_type: record.job_type,
+      salary_offered: record.salary_min && record.salary_max ? 
+        `${record.salary_min}-${record.salary_max} ${record.salary_currency}` : undefined,
+      contact_email: record.apply_email !== 'Not provided' ? record.apply_email : undefined,
+      apply_url: record.apply_url !== 'Not provided' ? record.apply_url : undefined,
+      
+      // ML-generated fields
+      is_remote: record.is_remote === 'Yes',
+      inferred_salary_currency: record.salary_currency,
+      inferred_salary_time_unit: record.salary_period,
+      inferred_salary_from: record.salary_min ? Number(record.salary_min) : undefined,
+      inferred_salary_to: record.salary_max ? Number(record.salary_max) : undefined
     }));
   }
 }

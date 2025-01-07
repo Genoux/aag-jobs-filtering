@@ -1,4 +1,5 @@
 import axios from 'axios';
+import crypto from 'crypto';
 import { JobsPikrJob } from '@localtypes/JobSearch';
 import { 
   BaseNiceboardJobPayload,
@@ -10,20 +11,30 @@ import {
 import { niceboardConfig } from '@config/niceboard';
 import { NiceboardCompanyService } from './NiceboardCompanyService';
 import { NiceboardJobTypeService } from './NiceboardJobTypeService';
+import { NiceboardLocationService } from './NiceboardLocationService';
+
 export class NiceboardService {
   private readonly config: NiceboardConfig;
   private readonly companyService: NiceboardCompanyService;
   private readonly jobTypeService: NiceboardJobTypeService;
+  private readonly locationService: NiceboardLocationService;
 
   constructor(config: Partial<NiceboardConfig> = {}) {
     this.config = { ...niceboardConfig, ...config };
     this.companyService = new NiceboardCompanyService(config);
     this.jobTypeService = new NiceboardJobTypeService(config);
+    this.locationService = new NiceboardLocationService(config);
   }
 
   async processJobs(jobs: JobsPikrJob[]): Promise<void> {
     for (const job of jobs) {
       try {
+        const isDuplicate = await this.findDuplicateJob(job);
+        if (isDuplicate) {
+          console.log(`⚠ Skip duplicate job: ${job.job_title} at ${job.company_name} (${job.city || 'No location'})`);
+          continue;
+        }
+
         await this.postJob(job);
         console.log(`✓ Successfully posted job: ${job.job_title}`);
         await this.delay(this.config.requestDelay);
@@ -36,12 +47,12 @@ export class NiceboardService {
               if (value) console.error(`  - ${key}: ${value}`);
             });
           } catch {
-            console.error(`  - Error: ${error.message}`);
+            console.error(`  - ${error.message}`);
           }
         }
       }
     }
-}
+  }
 
   private async postJob(job: JobsPikrJob): Promise<any> {
     try {
@@ -66,20 +77,75 @@ export class NiceboardService {
     }
   }
 
+  private createJobSignature(job: JobsPikrJob): string {
+    const elements = [
+      job.job_title,
+      job.company_name,
+      job.city || '',
+      job.state || '',
+      job.country || '',
+      job.job_type || '',
+      job.post_date
+    ].map(s => s.toLowerCase().trim());
+
+    return crypto.createHash('md5').update(elements.join('|')).digest('hex');
+  }
+
+  private async findDuplicateJob(job: JobsPikrJob): Promise<boolean> {
+    try {
+      const signature = this.createJobSignature(job);
+      
+      const response = await axios.get(
+        `${this.config.apiBaseUrl}/jobs`,
+        {
+          params: {
+            key: this.config.apiKey,
+            company: job.company_name,
+            title: job.job_title
+          }
+        }
+      );
+
+      if (response.data?.results?.jobs) {
+        return response.data.results.jobs.some((existingJob : any) => {
+          const existingSignature = this.createJobSignature({
+            job_title: existingJob.title,
+            company_name: existingJob.company_name,
+            city: existingJob.city,
+            state: existingJob.state,
+            country: existingJob.country,
+            job_type: existingJob.job_type,
+            post_date: existingJob.post_date,
+            uniq_id: existingJob.id.toString()
+          } as JobsPikrJob);
+
+          return existingSignature === signature;
+        });
+      }
+
+      return false;
+    } catch (error) {
+      console.warn('Failed to check for duplicate job:', error);
+      return false;
+    }
+  }
+
   private async mapJobToPayload(job: JobsPikrJob): Promise<NiceboardJobPayload> {
-    const companyId = await this.companyService.getOrCreateCompany(job.company_name);
-    
-    const jobTypeId = await this.jobTypeService.getOrCreateJobType(
-      job.job_type || 'Full Time'
-    );
+    const [companyId, jobTypeId, locationId] = await Promise.all([
+      this.companyService.getOrCreateCompany(job.company_name),
+      this.jobTypeService.getOrCreateJobType(job.job_type || ''),
+      this.locationService.getOrCreateLocation(job.city || '', job.state || '', job.country || '')
+    ]);
 
     const basePayload: BaseNiceboardJobPayload = {
       company_id: companyId,
-      jobtype_id: jobTypeId, 
+      jobtype_id: jobTypeId,
       title: job.job_title,
       description_html: this.sanitizeDescription(job),
       apply_by_form: false,
-      is_published: true
+      is_published: true,
+      remote_only: job.is_remote,
+      location_id: locationId
     };
 
     let applicationPayload: NiceboardJobPayload;
@@ -152,19 +218,14 @@ export class NiceboardService {
   }
 
   private handleError(error: unknown): Error {
-    if (axios.isAxiosError(error)) {
-      const status = error.response?.status || error.status;
-      const data = error.response?.data;
-      
-      const errorDetails = {
-        status,
-        ...(typeof data === 'object' ? data : {})
-      };
-
-      return new Error(JSON.stringify(errorDetails));
+    if (axios.isAxiosError(error) && error.response) {
+      return new Error(JSON.stringify({
+        status: error.response.status,
+        ...(typeof error.response.data === 'object' ? error.response.data : {})
+      }));
     }
     return error instanceof Error ? error : new Error('Unknown error occurred');
-}
+  }
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
