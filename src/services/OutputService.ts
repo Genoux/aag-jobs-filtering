@@ -1,16 +1,15 @@
 // services/OutputService.ts
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
-import { 
-  SavedQueryResult, 
-  JobsPikrJob, 
-  DailySummary, 
+import {
+  DailySummary,
+  ProcessedJob,
   QuerySummaryStats,
-  ProcessedJob 
-} from '../types/JobSearch';
+  SavedQueryResult,
+} from '@localtypes/JobSearch';
+import { JobsPikrJob } from '@localtypes/JobsPikr';
 
 export class OutputService {
   private readonly baseOutputDir: string;
@@ -19,7 +18,9 @@ export class OutputService {
     this.baseOutputDir = path.join(process.cwd(), 'output');
   }
 
-  async saveResultsToCsv(results: Record<string, SavedQueryResult>): Promise<void> {
+  async saveResultsToCsv(
+    results: Record<string, SavedQueryResult>,
+  ): Promise<void> {
     const timestamp = new Date().toISOString().replace(/:/g, '-');
     const dateDir = path.join(this.baseOutputDir, timestamp.split('T')[0]);
     fs.mkdirSync(dateDir, { recursive: true });
@@ -28,7 +29,7 @@ export class OutputService {
       timestamp,
       queries: {},
       totalJobs: 0,
-      queryCount: Object.keys(results).length
+      queryCount: Object.keys(results).length,
     };
 
     for (const [queryName, result] of Object.entries(results)) {
@@ -39,14 +40,14 @@ export class OutputService {
 
     fs.writeFileSync(
       path.join(dateDir, 'summary.json'),
-      JSON.stringify(summary, null, 2)
+      JSON.stringify(summary, null, 2),
     );
 
     this.printSummary(summary);
   }
 
   private prepareJobsForCsv(jobs: JobsPikrJob[]): ProcessedJob[] {
-    return jobs.map(job => ({
+    return jobs.map((job) => ({
       title: job.job_title,
       company: job.company_name,
       city: job.city,
@@ -54,24 +55,30 @@ export class OutputService {
       country: job.country,
       job_type: job.job_type || 'Not specified',
       is_remote: job.is_remote ? 'Yes' : 'No',
+      has_expired: job.has_expired,
       salary_min: job.inferred_salary_from,
       salary_max: job.inferred_salary_to,
       salary_currency: job.inferred_salary_currency,
       salary_period: job.inferred_salary_time_unit,
-      description: job.html_job_description || job.job_description || 'No description provided',
-      apply_url: job.apply_url || 'Not provided',
-      apply_email: job.contact_email || 'Not provided',
+      apply_url: job.apply_url || 'n/a',
+      contact_email: job.contact_email || 'n/a',
       post_date: job.post_date,
-      original_url: job.url
+      original_url: job.url,
+      category: job.category,
+      description: job.html_job_description || job.job_description || 'No description provided',
     }));
-}
+  }
 
-  private async processQueryResults(dateDir: string, queryName: string, result: SavedQueryResult): Promise<QuerySummaryStats> {
+  private async processQueryResults(
+    dateDir: string,
+    queryName: string,
+    result: SavedQueryResult,
+  ): Promise<QuerySummaryStats> {
     if (result.jobs.length > 0) {
       const csvData = this.prepareJobsForCsv(result.jobs);
       fs.writeFileSync(
         path.join(dateDir, `${this.sanitizeFileName(queryName)}.csv`),
-        stringify(csvData, { header: true })
+        stringify(csvData, { header: true }),
       );
     }
 
@@ -81,8 +88,9 @@ export class OutputService {
       jobCount: result.jobs.length,
       locations: this.summarizeLocations(result.jobs),
       jobTypes: this.summarizeJobTypes(result.jobs),
-      remoteCount: result.jobs.filter(j => j.is_remote).length,
-      salaryStats: this.summarizeSalaries(result.jobs)
+      remoteCount: result.jobs.filter((j) => j.is_remote).length,
+      salaryStats: this.summarizeSalaries(result.jobs),
+      expiredCount: result.jobs.filter((j) => j.has_expired).length,
     };
   }
 
@@ -123,17 +131,17 @@ export class OutputService {
   }
 
   private summarizeSalaries(jobs: JobsPikrJob[]) {
-    const salaries = jobs.filter(job => 
-      job.inferred_salary_from || job.inferred_salary_to
+    const salaries = jobs.filter(
+      (job) => job.inferred_salary_from || job.inferred_salary_to,
     );
 
     if (salaries.length === 0) return null;
 
     return {
-      min: Math.min(...salaries.map(j => j.inferred_salary_from || Infinity)),
-      max: Math.max(...salaries.map(j => j.inferred_salary_to || 0)),
+      min: Math.min(...salaries.map((j) => j.inferred_salary_from || Infinity)),
+      max: Math.max(...salaries.map((j) => j.inferred_salary_to || 0)),
       currency: salaries[0]?.inferred_salary_currency || 'Unknown',
-      count: salaries.length
+      count: salaries.length,
     };
   }
 
@@ -141,37 +149,36 @@ export class OutputService {
     const content = fs.readFileSync(filePath, 'utf-8');
     const records = parse(content, {
       columns: true,
-      skip_empty_lines: true
+      skip_empty_lines: true,
     });
 
     return records.map((record: any) => ({
-      // Mandatory fields according to the API blueprint
       crawl_timestamp: new Date().toISOString(),
       url: record.original_url,
       job_title: record.title,
       company_name: record.company,
       post_date: record.post_date,
-      uniq_id: crypto.randomUUID(),
       job_board: 'manual_import',
-      
-      // Optional fields
       city: record.city,
       state: record.state,
       country: record.country,
       job_description: record.description,
       html_job_description: record.description,
-      job_type: record.job_type,
-      salary_offered: record.salary_min && record.salary_max ? 
-        `${record.salary_min}-${record.salary_max} ${record.salary_currency}` : undefined,
-      contact_email: record.apply_email !== 'Not provided' ? record.apply_email : undefined,
-      apply_url: record.apply_url !== 'Not provided' ? record.apply_url : undefined,
-      
-      // ML-generated fields
+      job_type: record.job_type as JobsPikrJob['job_type'],
+      salary_offered: record.salary_min && record.salary_max
+        ? `${record.salary_min}-${record.salary_max} ${record.salary_currency}`
+        : undefined,
+      contact_email: record.contact_email,
+      apply_url: record.apply_url,
       is_remote: record.is_remote === 'Yes',
       inferred_salary_currency: record.salary_currency,
       inferred_salary_time_unit: record.salary_period,
-      inferred_salary_from: record.salary_min ? Number(record.salary_min) : undefined,
-      inferred_salary_to: record.salary_max ? Number(record.salary_max) : undefined
+      inferred_salary_from: record.salary_min
+        ? Number(record.salary_min)
+        : undefined,
+      inferred_salary_to: record.salary_max
+        ? Number(record.salary_max)
+        : undefined,
     }));
   }
 }

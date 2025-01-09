@@ -1,69 +1,42 @@
-// services/NiceboardJobTypeService.ts
-import axios from 'axios';
-import { NiceboardConfig, JobTypesResponse } from '@localtypes/Niceboard';
-import { niceboardConfig } from '@config/niceboard';
+import axios from 'axios'
+import { niceboardConfig } from '@config/niceboard'
+import { JobTypesResponse, NiceboardConfig } from '@localtypes/Niceboard'
 
 export class NiceboardJobTypeService {
-  private readonly config: NiceboardConfig;
-  private jobTypesCache: Map<string, number>;
-  private initialized: boolean = false;
+  private readonly config: NiceboardConfig
+  private jobTypesCache: Map<string, number>
+  private initialized: boolean = false
+  private readonly FULL_TIME_ID = 19377
 
   constructor(config: Partial<NiceboardConfig> = {}) {
-    this.config = { ...niceboardConfig, ...config };
-    this.jobTypesCache = new Map();
+    this.config = { ...niceboardConfig, ...config }
+    this.jobTypesCache = new Map()
   }
 
   async initialize(): Promise<void> {
     if (!this.initialized) {
       try {
-        await this.loadJobTypes();
-      } catch (error) {
-        console.warn('Failed to load job types, using default job type');
-
-        this.jobTypesCache.set('full time', this.config.defaultJobTypeId);
-        this.jobTypesCache.set('part time', this.config.defaultJobTypeId);
-        this.jobTypesCache.set('contract', this.config.defaultJobTypeId);
-      }
-      this.initialized = true;
-    }
-  }
-
-  private async loadJobTypes(): Promise<void> {
-    try {
-      const response = await axios.get<JobTypesResponse>(
-        `${this.config.apiBaseUrl}/jobtypes`,
-        {
-          params: { key: this.config.apiKey }
+        const response = await axios.get<JobTypesResponse>(
+          `${this.config.apiBaseUrl}/jobtypes`,
+          {
+            params: { key: this.config.apiKey },
+          },
+        )
+        if (!response.data.error && response.data.results) {
+          response.data.results.jobtypes.forEach((jobType) => {
+            this.jobTypesCache.set(jobType.name.toLowerCase(), jobType.id)
+          })
         }
-      );
-
-      if (!response.data.error && response.data.results) {
-        this.jobTypesCache.clear();
-        response.data.results.jobtypes.forEach(jobType => {
-          this.jobTypesCache.set(jobType.name.toLowerCase(), jobType.id);
-        });
+      } catch (error) {
+        console.warn('Failed to load job types, will default to full time')
       }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.warn(`Job types API error: ${error.response?.status} - Using default job type`);
-      }
-      throw error;
+      this.initialized = true
     }
   }
 
-  async getOrCreateJobType(jobType: string): Promise<number> {
-    await this.initialize();
-
-    const matchedType = this.findMatchingJobType(jobType);
-    if (matchedType) {
-      return matchedType;
-    }
-
-    return this.config.defaultJobTypeId;
-  }
-
-  private findMatchingJobType(jobType: string): number | undefined {
-    const type = jobType.toLowerCase();
-    return this.jobTypesCache.get(type) || this.config.defaultJobTypeId;
+  async getJobTypeId(jobType: string): Promise<number> {
+    await this.initialize()
+    const type = jobType?.toLowerCase()
+    return this.jobTypesCache.get(type) || this.FULL_TIME_ID
   }
 }

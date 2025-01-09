@@ -4,6 +4,6 @@ export const cliConfig = {
   exitCodes: {
     success: 0,
     error: 1,
-    invalidInput: 2
-  }
-};
+    invalidInput: 2,
+  },
+}
