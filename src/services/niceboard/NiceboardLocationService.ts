@@ -76,6 +76,21 @@ export class NiceboardLocationService {
     }
   }
 
+  async fetchAllLocations(): Promise<Map<string, number>> {
+    const response = await axios.get(`${this.config.apiBaseUrl}/locations`, {
+      params: { key: this.config.apiKey },
+    });
+  
+    const locations = response.data?.results.locations || [];
+    console.log('Locations response:', locations);
+    return new Map(
+      locations.map((location: any) => [
+        location
+      ])
+    );
+  }
+  
+
   private async findLocation(
     locationString: string,
   ): Promise<{ id: number } | null> {

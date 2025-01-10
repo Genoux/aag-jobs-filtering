@@ -48,6 +48,17 @@ export class NiceboardCompanyService {
     }
   }
 
+  async fetchAllCompanies(): Promise<Map<string, number>> {
+    const response = await axios.get(`${this.config.apiBaseUrl}/companies`, {
+      params: { key: this.config.apiKey },
+    });
+
+    console.log('Companies response:', response.data);
+  
+    const companies = response.data?.results.companies || [];
+    return new Map(companies.map((company: any) => company));
+  }
+
   private async findCompany(
     companyName: string,
   ): Promise<{ id: number } | null> {

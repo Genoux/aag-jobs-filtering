@@ -26,108 +26,109 @@ export class NiceboardService {
   }
 
   async processJobs(jobs: JobsPikrJob[]): Promise<void> {
-
+    console.log("Fetching existing jobs...");
+    const existingJobs = await this.fetchExistingJobs();
+  
+    console.log("Fetching existing companies and locations...");
+    const existingCompanies = await this.companyService.fetchAllCompanies();
+    const existingLocations = await this.locationService.fetchAllLocations();
+  
     for (const job of jobs) {
-      await this.delay(this.config.requestDelay)
-
+      await this.delay(this.config.requestDelay);
+  
       try {
-        const isDuplicate = await this.findDuplicateJob(job)
+        // Check for duplicates
+        const isDuplicate = existingJobs.some(
+          (existingJob) =>
+            existingJob.job_title === job.job_title &&
+            existingJob.company_name === job.company_name &&
+            existingJob.city === job.city &&
+            existingJob.state === job.state &&
+            existingJob.country === job.country &&
+            existingJob.job_type === job.job_type &&
+            existingJob.post_date === job.post_date
+        );
+  
         if (isDuplicate) {
           console.log(
-            `⚠ Skip duplicate job: ${job.job_title} at ${job.company_name} (${job.city || 'No location'})`,
-          )
-          continue
+            `⚠ Skip duplicate job: ${job.job_title} at ${job.company_name} (${job.city || 'No location'})`
+          );
+          continue;
         }
-
-        await this.postJob(job)
-        console.log(`✓ Successfully posted job: ${job.job_title}`)
-      } catch (error) {
-        console.error(`✗ Failed to post job "${job.job_title}":`)
-        if (error instanceof Error) {
-          try {
-            const errorData = JSON.parse(error.message)
-            Object.entries(errorData).forEach(([key, value]) => {
-              if (value) console.error(`  - ${key}: ${value}`)
-            })
-          } catch {
-            console.error(`  - ${error.message}`)
-          }
-        }
+  
+        // Post the job using pre-fetched data
+        await this.postJob(job, existingCompanies, existingLocations);
+        console.log(`✓ Successfully posted job: ${job.job_title}`);
+      } catch (error: unknown) {
+        console.error(`✗ Failed to post job "${job.job_title}":`, error instanceof Error ? error.message : error);
       }
     }
   }
 
-  private async postJob(job: JobsPikrJob): Promise<any> {
+  private async fetchExistingJobs(): Promise<Partial<JobsPikrJob>[]> {
     try {
-      const payload = await this.mapJobToPayload(job)
+      const response = await axios.get(`${this.config.apiBaseUrl}/jobs`, {
+        params: { key: this.config.apiKey },
+      });
+  
+      if (response.data?.results?.jobs) {
+        return response.data.results.jobs.map((job: any) => ({
+          job_title: job.title,
+          company_name: job.company_name,
+          city: job.city,
+          state: job.state,
+          country: job.country,
+          job_type: job.job_type,
+          post_date: job.post_date,
+        }));
+      }
+  
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch existing jobs:", error);
+      return [];
+    }
+  }
+  
 
+  private async postJob(
+    job: JobsPikrJob,
+    existingCompanies: Map<string, number>, // Pre-fetched company data
+    existingLocations: Map<string, number> // Pre-fetched location data
+  ): Promise<any> {
+    try {
+      const companyId = existingCompanies.get(job.company_name) 
+                       || (await this.companyService.getOrCreateCompany(job.company_name));
+      const locationId = existingLocations.get(this.getLocationKey(job)) 
+                        || (await this.locationService.getOrCreateLocation(
+                            job.city || '',
+                            job.state || '',
+                            job.country || ''
+                          ));
+  
+      const payload = await this.mapJobToPayload(job);
+  
       const response = await axios.post(
         `${this.config.apiBaseUrl}/jobs`,
         payload,
         {
           headers: { 'Content-Type': 'application/json' },
           params: { key: this.config.apiKey },
-        },
-      )
-
+        }
+      );
+  
       if (response.data && !response.data.error) {
-        return response.data
+        return response.data;
       }
-
-      throw new Error(JSON.stringify(response.data))
+  
+      throw new Error(JSON.stringify(response.data));
     } catch (error) {
-      throw this.handleError(error)
+      throw this.handleError(error);
     }
   }
-
-  private createJobSignature(job: JobsPikrJob): string {
-    const elements = [
-      job.job_title,
-      job.company_name,
-      job.city || '',
-      job.state || '',
-      job.country || '',
-      job.job_type || '',
-      job.post_date,
-    ].map((s) => s.toLowerCase().trim())
-
-    return crypto.createHash('md5').update(elements.join('|')).digest('hex')
-  }
-
-  private async findDuplicateJob(job: JobsPikrJob): Promise<boolean> {
-    try {
-      const signature = this.createJobSignature(job)
-
-      const response = await axios.get(`${this.config.apiBaseUrl}/jobs`, {
-        params: {
-          key: this.config.apiKey,
-          company: job.company_name,
-          title: job.job_title,
-        },
-      })
-
-      if (response.data?.results?.jobs) {
-        return response.data.results.jobs.some((existingJob: any) => {
-          const existingSignature = this.createJobSignature({
-            job_title: existingJob.title,
-            company_name: existingJob.company_name,
-            city: existingJob.city,
-            state: existingJob.state,
-            country: existingJob.country,
-            job_type: existingJob.job_type,
-            post_date: existingJob.post_date,
-            uniq_id: existingJob.id.toString(),
-          } as JobsPikrJob)
-
-          return existingSignature === signature
-        })
-      }
-
-      return false
-    } catch (error) {
-      console.warn('Failed to check for duplicate job:', error)
-      return false
-    }
+  
+  private getLocationKey(job: JobsPikrJob): string {
+    return `${job.city || ''},${job.state || ''},${job.country || ''}`.toLowerCase();
   }
 
   private async mapJobToPayload(
