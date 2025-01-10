@@ -59,11 +59,11 @@ export class NiceboardCompanyService {
         },
       })
 
-      if (response.data?.results?.companies?.length > 0) {
-        return response.data.results.companies[0]
-      }
+      const existingCompany = response.data.results.companies.find(
+        (company: { name: string }) => company.name === companyName,
+      )
 
-      return null
+      return existingCompany
     } catch (error) {
       console.warn(`Failed to search for company "${companyName}":`, error)
       return null
