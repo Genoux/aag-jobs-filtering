@@ -1,24 +1,24 @@
 // queries/jobQueries.ts
-import { SearchQuery } from '@localtypes/JobsPikr';
+import { SearchQuery } from '@localtypes/jobspikr'
 
 export interface QueryDefinition {
-  name: string;
-  description: string;
-  buildQuery: () => SearchQuery;
+  name: string
+  description: string
+  buildQuery: () => SearchQuery
 }
 
 export const jobQueries: Record<string, QueryDefinition> = {
   healthcareJobs: {
-    name: "Healthcare Jobs in US",
-    description: "Healthcare positions across the United States filtered by state and job title",
+    name: 'Healthcare Jobs in US',
+    description: 'Healthcare positions across the United States',
     buildQuery: () => ({
-      size: 10,
+      size: 100,
       search_query_json: {
         bool: {
           must: [
             {
               query_string: {
-                fields: ["job_title", "inferred_job_title"],
+                fields: ['job_title', 'inferred_job_title'],
                 query: `
                   "Nurse Practitioner" OR "Registered Nurse" OR "Physician" OR 
                   "Surgeon" OR "Pharmacist" OR "Medical Assistant" OR 
@@ -42,8 +42,8 @@ export const jobQueries: Record<string, QueryDefinition> = {
             },
             {
               query_string: {
-                default_field: "has_expired",
-                query: "false",
+                default_field: 'has_expired',
+                query: 'false',
               },
             },
             {
@@ -51,12 +51,12 @@ export const jobQueries: Record<string, QueryDefinition> = {
                 should: [
                   {
                     exists: {
-                      field: "contact_email",
+                      field: 'contact_email',
                     },
                   },
                   {
                     exists: {
-                      field: "apply_url",
+                      field: 'apply_url',
                     },
                   },
                 ],
@@ -65,41 +65,79 @@ export const jobQueries: Record<string, QueryDefinition> = {
             {
               range: {
                 post_date: {
-                  gte: new Date(new Date().setDate(new Date().getDate() - 14)).toISOString().split("T")[0],
-                  lte: new Date().toISOString().split("T")[0],
+                  gte: new Date(new Date().setDate(new Date().getDate() - 14))
+                    .toISOString()
+                    .split('T')[0],
+                  lte: new Date().toISOString().split('T')[0],
                 },
               },
             },
-            // {
-            //   exists: {
-            //     field: "inferred_salary_from",
-            //   },
-            // },
             {
               bool: {
                 should: [
                   ...[
-                    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
-                    "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
-                    "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana",
-                    "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi",
-                    "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
-                    "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma",
-                    "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
-                    "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
-                    "West Virginia", "Wisconsin", "Wyoming"
+                    'Alabama',
+                    'Alaska',
+                    'Arizona',
+                    'Arkansas',
+                    'California',
+                    'Colorado',
+                    'Connecticut',
+                    'Delaware',
+                    'Florida',
+                    'Georgia',
+                    'Hawaii',
+                    'Idaho',
+                    'Illinois',
+                    'Indiana',
+                    'Iowa',
+                    'Kansas',
+                    'Kentucky',
+                    'Louisiana',
+                    'Maine',
+                    'Maryland',
+                    'Massachusetts',
+                    'Michigan',
+                    'Minnesota',
+                    'Mississippi',
+                    'Missouri',
+                    'Montana',
+                    'Nebraska',
+                    'Nevada',
+                    'New Hampshire',
+                    'New Jersey',
+                    'New Mexico',
+                    'New York',
+                    'North Carolina',
+                    'North Dakota',
+                    'Ohio',
+                    'Oklahoma',
+                    'Oregon',
+                    'Pennsylvania',
+                    'Rhode Island',
+                    'South Carolina',
+                    'South Dakota',
+                    'Tennessee',
+                    'Texas',
+                    'Utah',
+                    'Vermont',
+                    'Virginia',
+                    'Washington',
+                    'West Virginia',
+                    'Wisconsin',
+                    'Wyoming',
                   ].map((state) => ({
                     bool: {
                       must: [
                         {
                           query_string: {
-                            fields: ["inferred_country"],
+                            fields: ['inferred_country'],
                             query: `"United States" OR "USA" OR "US"`,
                           },
                         },
                         {
                           query_string: {
-                            fields: ["inferred_state"],
+                            fields: ['inferred_state'],
                             query: `"${state}" OR "${state.slice(0, 2).toLowerCase()}"`,
                           },
                         },
@@ -114,4 +152,4 @@ export const jobQueries: Record<string, QueryDefinition> = {
       },
     }),
   },
-};
+}

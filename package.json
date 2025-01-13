@@ -9,8 +9,12 @@
     "start": "node dist/index.js",
     "fetch": "ts-node -r tsconfig-paths/register src/index.ts fetch",
     "upload": "ts-node -r tsconfig-paths/register src/index.ts upload",
+    "remove-all-companies": "ts-node -r tsconfig-paths/register src/index.ts remove-all-companies",
     "watch": "nodemon --watch 'src/**/*.ts' --exec 'ts-node -r tsconfig-paths/register' src/index.ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:company": "ts-node -r tsconfig-paths/register ./src/test/testCompany.ts",
+    "test:jobtype": "ts-node -r tsconfig-paths/register ./src/test/testJobType.ts",
+    "test:location": "ts-node -r tsconfig-paths/register ./src/test/testLocation.ts"
   },
   "keywords": [],
   "author": "",

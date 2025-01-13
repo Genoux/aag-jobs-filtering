@@ -11,7 +11,7 @@
       "@services/*": ["./src/services/*"],
       "@localtypes/*": ["./src/types/*"],
       "@constants/*": ["./src/constants/*"],
-      "@utils/*": ["./src/utils/*"],
+      "@utils": ["./src/utils/"],
       "@queries/*": ["./src/queries/*"],
       "@config/*": ["./src/config/*"]
     }
