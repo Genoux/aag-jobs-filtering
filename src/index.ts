@@ -1,28 +1,32 @@
 // index.ts
 import { Command } from 'commander'
-import { JobSearchService } from './services/JobSearchService'
+import { niceboardConfig } from '@config/niceboard'
+import { CommandResult, FetchOptions, UploadOptions } from '@localtypes/common'
+import { CsvService } from './services/csv/CsvService'
+import { JobSearchService } from './services/jobSearch/JobSearchService'
+import { CompanyService } from './services/niceboard/CompanyService'
 import { NiceboardService } from './services/niceboard/NiceboardService'
-import { OutputService } from './services/OutputService'
-import { CommandResult, FetchOptions, UploadOptions } from './types/CLI'
 
 class JobProcessor {
   private readonly searchService: JobSearchService
-  private readonly outputService: OutputService
+  private readonly csvService: CsvService
   private readonly niceboardService: NiceboardService
-
+  public readonly companyService: CompanyService
   constructor() {
     this.searchService = new JobSearchService()
-    this.outputService = new OutputService()
+    this.csvService = new CsvService()
     this.niceboardService = new NiceboardService()
+    this.companyService = new CompanyService(niceboardConfig)
   }
 
   async fetchJobs(options: FetchOptions): Promise<CommandResult> {
     try {
       console.log('Fetching jobs from JobsPikr...')
       const jobResults = await this.searchService.processAllQueries()
+      // map result so we remove the description field and the html_job_description
 
       console.log('Saving results to CSV...')
-      await this.outputService.saveResultsToCsv(jobResults)
+      await this.csvService.saveResultsToCsv(jobResults)
 
       return {
         success: true,
@@ -43,8 +47,7 @@ class JobProcessor {
     options: UploadOptions,
   ): Promise<CommandResult> {
     try {
-      console.log('Reading jobs from CSV...')
-      const jobs = await this.outputService.readJobsFromCsv(file)
+      const jobs = await this.csvService.readJobsFromCsv(file)
 
       if (options.dryRun) {
         return {
@@ -53,12 +56,15 @@ class JobProcessor {
         }
       }
 
-      console.log('Uploading jobs to Niceboard...')
-      await this.niceboardService.processJobs(jobs)
+      const stats = await this.niceboardService.processJobs(jobs)
 
       return {
         success: true,
-        message: 'Jobs uploaded successfully',
+        message: `Jobs processed successfully:
+                Total: ${stats.total}
+                Created: ${stats.created}
+                Skipped: ${stats.skipped}
+                Failed: ${stats.failed}`,
       }
     } catch (error) {
       return {
@@ -83,6 +89,25 @@ async function handleCommand(action: Promise<CommandResult>): Promise<void> {
   } catch (error) {
     console.error('Unexpected error:', error)
     process.exit(1)
+  }
+}
+
+async function removeAllCompanies(
+  processor: JobProcessor,
+): Promise<CommandResult> {
+  try {
+    await processor.companyService.fetchAllCompanies()
+    const companies = await processor.companyService.fetchAllCompanies()
+    for (const company of companies) {
+      await processor.companyService.removeCompany(company[1])
+    }
+    return { success: true, message: 'All companies removed successfully' }
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Failed to remove companies',
+      error: error instanceof Error ? error : new Error('Unknown error'),
+    }
   }
 }
 
@@ -121,6 +146,13 @@ function main() {
           dryRun: options.dryRun,
         }),
       )
+    })
+
+  program
+    .command('remove-all-companies')
+    .description('Remove all companies from Niceboard')
+    .action(() => {
+      handleCommand(removeAllCompanies(processor))
     })
 
   program.parse()

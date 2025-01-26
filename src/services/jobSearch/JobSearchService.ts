@@ -1,23 +1,23 @@
 // services/JobSearchService.ts
-import axios from 'axios';
-import { jobspikrConfig } from '@config/jobspikr';
-import { jobQueries } from '@queries/jobQueries';
-import { ApiResponse, SearchQuery } from '@localtypes/JobsPikr';
-import { SavedQueryResult } from '@localtypes/JobSearch';
+import axios from 'axios'
+import { jobspikrConfig } from '@config/jobspikr'
+import { SavedQueryResult } from '@localtypes/common'
+import { ApiResponse, SearchQuery } from '@localtypes/jobspikr'
+import { jobQueries } from '@queries/jobQueries'
 
 export class JobSearchService {
   async processAllQueries(): Promise<Record<string, SavedQueryResult>> {
-    const results: Record<string, SavedQueryResult> = {};
-    
+    const results: Record<string, SavedQueryResult> = {}
+
     for (const [queryName, queryDef] of Object.entries(jobQueries)) {
-      console.log(`Processing: ${queryDef.name}`);
-      
+      console.log(`Processing: ${queryDef.name}`)
+
       try {
-        const searchDate = new Date();
+        const searchDate = new Date()
         const result = await this.searchWithPresetQuery(
           queryName as keyof typeof jobQueries,
-        );
-        
+        )
+
         results[queryName] = {
           query: {
             name: queryDef.name,
@@ -29,24 +29,26 @@ export class JobSearchService {
             searchDate: this.formatDate(searchDate),
           },
           jobs: result.job_data || [],
-        };
-        
-        await this.delay(1000);
+        }
+
+        await this.delay(1000)
       } catch (error) {
-        console.error(`Error processing query "${queryName}":`, error);
+        console.error(`Error processing query "${queryName}":`, error)
       }
     }
-    
-    return results;
+
+    return results
   }
 
-  private async searchWithPresetQuery(queryName: keyof typeof jobQueries): Promise<ApiResponse> {
-    const queryDef = jobQueries[queryName];
+  private async searchWithPresetQuery(
+    queryName: keyof typeof jobQueries,
+  ): Promise<ApiResponse> {
+    const queryDef = jobQueries[queryName]
     if (!queryDef) {
-      throw new Error(`Query "${queryName}" not found`);
+      throw new Error(`Query "${queryName}" not found`)
     }
-    const response = await this.makeApiRequest(queryDef.buildQuery());
-    return response.data;
+    const response = await this.makeApiRequest(queryDef.buildQuery())
+    return response.data
   }
 
   private async makeApiRequest(query: SearchQuery) {
@@ -55,9 +57,9 @@ export class JobSearchService {
         `${jobspikrConfig.API_BASE_URL}/data`,
         query,
         { headers: jobspikrConfig.headers },
-      );
+      )
     } catch (error) {
-      throw this.handleApiError(error);
+      throw this.handleApiError(error)
     }
   }
 
@@ -66,12 +68,12 @@ export class JobSearchService {
       console.error('API Error:', {
         status: error.response?.status,
         data: error.response?.data,
-      });
+      })
       return new Error(
         `JobsPikr API error: ${error.response?.data?.message || error.message}`,
-      );
+      )
     }
-    return error instanceof Error ? error : new Error('Unknown error occurred');
+    return error instanceof Error ? error : new Error('Unknown error occurred')
   }
 
   private formatDate(date: Date): string {
@@ -83,10 +85,10 @@ export class JobSearchService {
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
-    });
+    })
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }

@@ -1,244 +1,190 @@
-import crypto from 'crypto'
-import axios from 'axios'
-import { niceboardConfig } from '@config/niceboard'
-import { JobsPikrJob, JobsPikrTimeUnit } from '@localtypes/JobsPikr'
-import {
-  BaseNiceboardJobPayload,
-  NiceboardConfig,
-  NiceboardJobPayload,
-  SalaryTimeframe,
-} from '@localtypes/Niceboard'
-import { NiceboardCompanyService } from '@services/niceboard/NiceboardCompanyService'
-import { NiceboardJobTypeService } from '@services/niceboard/NiceboardJobTypeService'
-import { NiceboardLocationService } from '@services/niceboard/NiceboardLocationService'
+// services/niceboard/NiceboardService.ts
+// ✅
 
-export class NiceboardService {
-  private readonly config: NiceboardConfig
-  private readonly companyService: NiceboardCompanyService
-  private readonly jobTypeService: NiceboardJobTypeService
-  private readonly locationService: NiceboardLocationService
+import { niceboardConfig } from '@config/niceboard'
+import { JobsPikrJob } from '@localtypes/jobspikr'
+import {
+  NiceboardConfig,
+  NiceboardJob,
+  NiceboardJobPayload,
+  NiceboardJobsResponse,
+} from '@localtypes/niceboard'
+import { delay, formatters, logger, validation } from '@utils'
+import { BaseNiceboardService } from './base/BaseNiceboardService'
+import { CompanyService } from './CompanyService'
+import { JobTypeService } from './JobTypeService'
+import { LocationService } from './LocationService'
+import { CategoryService } from './CategoryService'
+
+interface ProcessingStats {
+  total: number
+  created: number
+  skipped: number
+  failed: number
+}
+
+export class NiceboardService extends BaseNiceboardService {
+  private readonly companyService: CompanyService
+  private readonly jobTypeService: JobTypeService
+  private readonly locationService: LocationService
+  private readonly categoryService: CategoryService 
 
   constructor(config: Partial<NiceboardConfig> = {}) {
-    this.config = { ...niceboardConfig, ...config }
-    this.companyService = new NiceboardCompanyService(config)
-    this.jobTypeService = new NiceboardJobTypeService(config)
-    this.locationService = new NiceboardLocationService(config)
+    const mergedConfig: NiceboardConfig = {
+      ...niceboardConfig,
+      ...config,
+    }
+
+    super(mergedConfig)
+    this.companyService = new CompanyService(mergedConfig)
+    this.jobTypeService = new JobTypeService(mergedConfig)
+    this.locationService = new LocationService(mergedConfig)
+    this.categoryService = new CategoryService(mergedConfig)
   }
 
-  async processJobs(jobs: JobsPikrJob[]): Promise<void> {
+  async processJobs(jobs: JobsPikrJob[]): Promise<ProcessingStats> {
+    const stats: ProcessingStats = {
+      total: jobs.length,
+      created: 0,
+      skipped: 0,
+      failed: 0,
+    }
 
-    for (const job of jobs) {
-      await this.delay(this.config.requestDelay)
+    try {
+      const existingJobs = await this.fetchExistingJobs()
 
-      try {
-        const isDuplicate = await this.findDuplicateJob(job)
-        if (isDuplicate) {
-          console.log(
-            `⚠ Skip duplicate job: ${job.job_title} at ${job.company_name} (${job.city || 'No location'})`,
-          )
-          continue
-        }
+      for (const job of jobs) {
+        console.log('Processing job:', job.company_name)
+        try {
+          logger.info(`Processing job: ${job.job_title} at ${job.company_name}`)
+          await delay(this.config.requestDelay)
 
-        await this.postJob(job)
-        console.log(`✓ Successfully posted job: ${job.job_title}`)
-      } catch (error) {
-        console.error(`✗ Failed to post job "${job.job_title}":`)
-        if (error instanceof Error) {
-          try {
-            const errorData = JSON.parse(error.message)
-            Object.entries(errorData).forEach(([key, value]) => {
-              if (value) console.error(`  - ${key}: ${value}`)
-            })
-          } catch {
-            console.error(`  - ${error.message}`)
+          if (await this.isJobDuplicate(job, existingJobs)) {
+            logger.info(`Skipping duplicate job: ${job.job_title}`)
+            stats.skipped++
+            continue
           }
+
+          await this.createJob(job)
+          logger.info(`Successfully created job: ${job.job_title}`)
+          stats.created++
+        } catch (error) {
+          logger.error(`Failed to process job "${job.job_title}"`, error)
+          stats.failed++
         }
       }
-    }
-  }
 
-  private async postJob(job: JobsPikrJob): Promise<any> {
-    try {
-      const payload = await this.mapJobToPayload(job)
-
-      const response = await axios.post(
-        `${this.config.apiBaseUrl}/jobs`,
-        payload,
-        {
-          headers: { 'Content-Type': 'application/json' },
-          params: { key: this.config.apiKey },
-        },
-      )
-
-      if (response.data && !response.data.error) {
-        return response.data
-      }
-
-      throw new Error(JSON.stringify(response.data))
-    } catch (error) {
-      throw this.handleError(error)
-    }
-  }
-
-  private createJobSignature(job: JobsPikrJob): string {
-    const elements = [
-      job.job_title,
-      job.company_name,
-      job.city || '',
-      job.state || '',
-      job.country || '',
-      job.job_type || '',
-      job.post_date,
-    ].map((s) => s.toLowerCase().trim())
-
-    return crypto.createHash('md5').update(elements.join('|')).digest('hex')
-  }
-
-  private async findDuplicateJob(job: JobsPikrJob): Promise<boolean> {
-    try {
-      const signature = this.createJobSignature(job)
-
-      const response = await axios.get(`${this.config.apiBaseUrl}/jobs`, {
-        params: {
-          key: this.config.apiKey,
-          company: job.company_name,
-          title: job.job_title,
+      logger.info('Job processing completed', {
+        stats: {
+          total: stats.total,
+          created: stats.created,
+          skipped: stats.skipped,
+          failed: stats.failed,
         },
       })
 
-      if (response.data?.results?.jobs) {
-        return response.data.results.jobs.some((existingJob: any) => {
-          const existingSignature = this.createJobSignature({
-            job_title: existingJob.title,
-            company_name: existingJob.company_name,
-            city: existingJob.city,
-            state: existingJob.state,
-            country: existingJob.country,
-            job_type: existingJob.job_type,
-            post_date: existingJob.post_date,
-            uniq_id: existingJob.id.toString(),
-          } as JobsPikrJob)
-
-          return existingSignature === signature
-        })
-      }
-
-      return false
+      return stats
     } catch (error) {
-      console.warn('Failed to check for duplicate job:', error)
-      return false
+      logger.error('Failed to process jobs batch', error)
+      throw error
     }
   }
 
-  private async mapJobToPayload(
+  private async isJobDuplicate(
     job: JobsPikrJob,
-  ): Promise<NiceboardJobPayload> {
-    const [companyId, jobTypeId, locationId] = await Promise.all([
+    existingJobs: NiceboardJob[],
+  ): Promise<boolean> {
+    logger.info(`Checking ${existingJobs.length} existing jobs for duplicates`)
+
+    const isDuplicate = existingJobs.some((existing) => {
+      const titleMatch =
+        existing.title?.toLowerCase() === job.job_title?.toLowerCase()
+
+      if (!titleMatch) return false
+
+      const companyMatch =
+        existing.company?.name?.toLowerCase() ===
+        job.company_name?.toLowerCase()
+      // logger.debug(`Company match: ${companyMatch}`, {
+      //   newCompany: job.company_name,
+      //   existingCompany: existing.company?.name,
+      // })
+
+      if (!companyMatch) return false
+
+      // If we got here, it's a match
+      logger.debug('Found match!', {
+        match: {
+          title: titleMatch,
+          company: companyMatch,
+        },
+      })
+      return true
+    })
+
+    logger.debug(`Final duplicate check result: ${isDuplicate}`)
+    return isDuplicate
+  }
+
+  private async createJob(job: JobsPikrJob): Promise<void> {
+    const [companyId, jobTypeId, locationId, categoryId] = await Promise.all([
       this.companyService.getOrCreateCompany(job.company_name),
-      this.jobTypeService.getJobTypeId(job.job_type || ''),
-      this.locationService.getOrCreateLocation(
-        job.city || '',
-        job.state || '',
-        job.country || '',
-      ),
+      this.jobTypeService.getJobTypeId(job.job_type),
+      this.locationService.getLocationId(job.city, job.state, job.country),
+      this.categoryService.getCategoryId(job.category || 'Unknown'),
     ])
 
-    const basePayload: Omit<BaseNiceboardJobPayload, 'apply_email' | 'apply_url'> = {
+    const payload = this.createJobPayload(job, companyId, jobTypeId, locationId, categoryId)
+
+    await this.makeRequest('/jobs', {
+      method: 'POST',
+      data: payload,
+    })
+  }
+
+  private createJobPayload(
+    job: JobsPikrJob,
+    companyId: number,
+    jobTypeId: number,
+    locationId?: number,
+    categoryId?: number,
+  ): NiceboardJobPayload {
+    const payload: NiceboardJobPayload = {
       company_id: companyId,
       jobtype_id: jobTypeId,
       title: job.job_title,
-      description_html: this.sanitizeDescription(job),
+      category_id: categoryId,
+      description_html: formatters.sanitizeDescription(job),
       apply_by_form: true,
       is_published: true,
-      remote_only: job.is_remote,
+      remote_only: job.is_remote || false,
       location_id: locationId,
-      salary_min: job.inferred_salary_from,
-      salary_max: job.inferred_salary_to,
-      salary_timeframe: this.mapSalaryTimeframe(job.inferred_salary_time_unit),
-      salary_currency: job.inferred_salary_currency,
     }
 
-    let applicationPayload = { ...basePayload } as NiceboardJobPayload
-
-    if (job.apply_url && this.isValidUrl(job.apply_url)) {
-      applicationPayload.apply_by_form = false
-      applicationPayload.apply_url = job.apply_url
-    } else if (job.contact_email && this.isValidEmail(job.contact_email)) {
-      applicationPayload.apply_by_form = false
-      applicationPayload.apply_email = job.contact_email
+    // Add application method
+    if (job.apply_url && validation.isValidUrl(job.apply_url)) {
+      payload.apply_by_form = false
+      payload.apply_url = job.apply_url
+    } else if (
+      job.contact_email &&
+      validation.isValidEmail(job.contact_email)
+    ) {
+      payload.apply_by_form = false
+      payload.apply_email = job.contact_email
     }
 
-    // if (job.inferred_salary_from)
-    //   applicationPayload.salary_min = job.inferred_salary_from
-    // if (job.inferred_salary_to)
-    //   applicationPayload.salary_max = job.inferred_salary_to
-    // if (job.inferred_salary_time_unit)
-    //   applicationPayload.salary_timeframe = this.mapSalaryTimeframe(
-    //     job.inferred_salary_time_unit,
-    //   )
-    // if (job.inferred_salary_currency)
-    //   applicationPayload.salary_currency = job.inferred_salary_currency
-    // if (job.is_remote !== undefined) {
-    //   applicationPayload.is_remote = job.is_remote
-    //   applicationPayload.remote_only = job.is_remote
-    // }
-
-    return applicationPayload
+    return payload
   }
 
-  private sanitizeDescription(job: JobsPikrJob): string {
-    if (job.html_job_description) {
-      return job.html_job_description
-    }
-    if (job.job_description) {
-      return `<p>${job.job_description}</p>`
-    }
-    return '<p>No description provided</p>'
-  }
-
-  private mapSalaryTimeframe(
-    timeUnit?: JobsPikrTimeUnit,
-  ): SalaryTimeframe | undefined {
-    const mapping: Record<JobsPikrTimeUnit, SalaryTimeframe> = {
-      yearly: 'annually',
-      monthly: 'monthly',
-      weekly: 'weekly',
-      hourly: 'hourly',
-      daily: 'weekly',
-    }
-
-    return timeUnit ? mapping[timeUnit] : undefined
-  }
-
-  private isValidUrl(url: string): boolean {
+  private async fetchExistingJobs(): Promise<NiceboardJob[]> {
     try {
-      new URL(url)
-      return true
-    } catch {
-      return false
+      const response = await this.makeRequest<NiceboardJobsResponse>('/jobs', {
+        method: 'GET',
+      })
+      return response.results.jobs
+    } catch (error) {
+      logger.error('Failed to fetch existing jobs', error)
+      return []
     }
-  }
-
-  private isValidEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
-  }
-
-  private handleError(error: unknown): Error {
-    if (axios.isAxiosError(error) && error.response) {
-      return new Error(
-        JSON.stringify({
-          status: error.response.status,
-          ...(typeof error.response.data === 'object'
-            ? error.response.data
-            : {}),
-        }),
-      )
-    }
-    return error instanceof Error ? error : new Error('Unknown error occurred')
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
