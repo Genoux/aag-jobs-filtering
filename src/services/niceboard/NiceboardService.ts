@@ -14,6 +14,7 @@ import { BaseNiceboardService } from './base/BaseNiceboardService'
 import { CompanyService } from './CompanyService'
 import { JobTypeService } from './JobTypeService'
 import { LocationService } from './LocationService'
+import { CategoryService } from './CategoryService'
 
 interface ProcessingStats {
   total: number
@@ -26,6 +27,7 @@ export class NiceboardService extends BaseNiceboardService {
   private readonly companyService: CompanyService
   private readonly jobTypeService: JobTypeService
   private readonly locationService: LocationService
+  private readonly categoryService: CategoryService 
 
   constructor(config: Partial<NiceboardConfig> = {}) {
     const mergedConfig: NiceboardConfig = {
@@ -37,6 +39,7 @@ export class NiceboardService extends BaseNiceboardService {
     this.companyService = new CompanyService(mergedConfig)
     this.jobTypeService = new JobTypeService(mergedConfig)
     this.locationService = new LocationService(mergedConfig)
+    this.categoryService = new CategoryService(mergedConfig)
   }
 
   async processJobs(jobs: JobsPikrJob[]): Promise<ProcessingStats> {
@@ -94,23 +97,18 @@ export class NiceboardService extends BaseNiceboardService {
     logger.info(`Checking ${existingJobs.length} existing jobs for duplicates`)
 
     const isDuplicate = existingJobs.some((existing) => {
-      // Title match
       const titleMatch =
         existing.title?.toLowerCase() === job.job_title?.toLowerCase()
-      logger.debug(`Title match: ${titleMatch}`, {
-        newTitle: job.job_title,
-        existingTitle: existing.title,
-      })
 
       if (!titleMatch) return false
 
       const companyMatch =
         existing.company?.name?.toLowerCase() ===
         job.company_name?.toLowerCase()
-      logger.debug(`Company match: ${companyMatch}`, {
-        newCompany: job.company_name,
-        existingCompany: existing.company?.name,
-      })
+      // logger.debug(`Company match: ${companyMatch}`, {
+      //   newCompany: job.company_name,
+      //   existingCompany: existing.company?.name,
+      // })
 
       if (!companyMatch) return false
 
@@ -129,13 +127,14 @@ export class NiceboardService extends BaseNiceboardService {
   }
 
   private async createJob(job: JobsPikrJob): Promise<void> {
-    const [companyId, jobTypeId, locationId] = await Promise.all([
+    const [companyId, jobTypeId, locationId, categoryId] = await Promise.all([
       this.companyService.getOrCreateCompany(job.company_name),
       this.jobTypeService.getJobTypeId(job.job_type),
       this.locationService.getLocationId(job.city, job.state, job.country),
+      this.categoryService.getCategoryId(job.category || 'Unknown'),
     ])
 
-    const payload = this.createJobPayload(job, companyId, jobTypeId, locationId)
+    const payload = this.createJobPayload(job, companyId, jobTypeId, locationId, categoryId)
 
     await this.makeRequest('/jobs', {
       method: 'POST',
@@ -148,11 +147,13 @@ export class NiceboardService extends BaseNiceboardService {
     companyId: number,
     jobTypeId: number,
     locationId?: number,
+    categoryId?: number,
   ): NiceboardJobPayload {
     const payload: NiceboardJobPayload = {
       company_id: companyId,
       jobtype_id: jobTypeId,
       title: job.job_title,
+      category_id: categoryId,
       description_html: formatters.sanitizeDescription(job),
       apply_by_form: true,
       is_published: true,

@@ -46,7 +46,7 @@ export class CsvService {
     this.printSummary(summary)
   }
 
-  private prepareJobsForCsv(jobs: JobsPikrJob[]): ProcessedJob[] {
+  private prepareJobsForCsv(jobs: JobsPikrJob[]): any[] {
     return jobs.map((job) => ({
       title: job.job_title,
       company_name: job.company_name,
@@ -54,8 +54,9 @@ export class CsvService {
       state: job.state || '',
       country: job.country || '',
       job_type: job.job_type || 'Not specified',
-      is_remote: Boolean(job.is_remote) || false,
-      has_expired: Boolean(job.has_expired) || false,
+      category: job.category || 'Not specified',
+      is_remote: Boolean(job.is_remote),
+      has_expired: Boolean(job.has_expired),
       apply_url: job.apply_url || 'n/a',
       contact_email: job.contact_email || 'n/a',
       post_date: job.post_date,
@@ -64,8 +65,9 @@ export class CsvService {
         job.html_job_description ||
         job.job_description ||
         'No description provided',
-    }))
+    }));
   }
+  
 
   private async processQueryResults(
     dateDir: string,
@@ -134,29 +136,33 @@ export class CsvService {
   }
 
   async readJobsFromCsv(filePath: string): Promise<JobsPikrJob[]> {
-    const content = fs.readFileSync(filePath, 'utf-8')
+    const content = fs.readFileSync(filePath, 'utf-8');
     const records = parse(content, {
       columns: true,
       skip_empty_lines: true,
-    })
-
+    });
+  
     return records.map((record: any) => ({
       crawl_timestamp: new Date().toISOString(),
       url: record.original_url,
       job_title: record.title,
       company_name: record.company_name,
       post_date: record.post_date,
-      job_board: 'manual_import',
+      category: record.category,
       city: record.city,
       state: record.state,
       country: record.country,
       job_description: record.description,
       html_job_description: record.description,
-      job_type: record.job_type as JobsPikrJob['job_type'],
+      job_type: record.job_type,
       contact_email: record.contact_email,
       apply_url: record.apply_url,
-      is_remote: record.is_remote,
-      has_expired: record.has_expired,
-    }))
+      is_remote: record.is_remote === 'true', // Parse string as boolean
+      has_expired: record.has_expired === 'true', // Parse string as boolean
+    }));
   }
+  
+  
+  
+  
 }

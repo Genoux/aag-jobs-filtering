@@ -21,8 +21,8 @@ export interface ProcessedJob {
   state?: string
   country?: string
   job_type: string
-  is_remote: boolean
-  has_expired: boolean
+  is_remote: string
+  has_expired: string
   description: string
   apply_url: string
   contact_email: string

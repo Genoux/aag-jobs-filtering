@@ -28,6 +28,7 @@ export interface NiceboardJobPayload {
   company_id: number
   jobtype_id: number
   title: string
+  category_id?: number
   description_html: string
   apply_by_form: boolean
   apply_url?: string

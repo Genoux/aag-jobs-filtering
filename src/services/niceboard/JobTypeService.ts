@@ -18,17 +18,6 @@ interface JobTypesApiResponse {
   jobtypes: JobType[]
 }
 
-interface JobTypeApiResponse {
-  error: boolean
-  results: {
-    jobtype: JobType
-  }
-}
-
-interface CreateJobTypePayload {
-  name: string
-}
-
 export class JobTypeService extends BaseNiceboardService {
   private readonly FULL_TIME_ID = 19377 // Default fallback ID
 
