@@ -1,6 +1,6 @@
 // config/cli.ts
 export const cliConfig = {
-  defaultLimit: 50,
+  defaultLimit: 10,
   exitCodes: {
     success: 0,
     error: 1,

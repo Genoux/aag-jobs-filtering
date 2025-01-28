@@ -2,7 +2,7 @@
 // ✅
 
 import { niceboardConfig } from '@config/niceboard'
-import { JobsPikrJob } from '@localtypes/jobspikr'
+import { JobsPikrJob } from '@localtypes/job'
 import {
   NiceboardConfig,
   NiceboardJob,
@@ -94,8 +94,6 @@ export class NiceboardService extends BaseNiceboardService {
     job: JobsPikrJob,
     existingJobs: NiceboardJob[],
   ): Promise<boolean> {
-    logger.info(`Checking ${existingJobs.length} existing jobs for duplicates`)
-
     const isDuplicate = existingJobs.some((existing) => {
       const titleMatch =
         existing.title?.toLowerCase() === job.job_title?.toLowerCase()
@@ -105,10 +103,6 @@ export class NiceboardService extends BaseNiceboardService {
       const companyMatch =
         existing.company?.name?.toLowerCase() ===
         job.company_name?.toLowerCase()
-      // logger.debug(`Company match: ${companyMatch}`, {
-      //   newCompany: job.company_name,
-      //   existingCompany: existing.company?.name,
-      // })
 
       if (!companyMatch) return false
 
@@ -157,7 +151,7 @@ export class NiceboardService extends BaseNiceboardService {
       description_html: formatters.sanitizeDescription(job),
       apply_by_form: true,
       is_published: true,
-      remote_only: job.is_remote || false,
+      remote_only: job.is_remote,
       location_id: locationId,
     }
 
@@ -180,6 +174,9 @@ export class NiceboardService extends BaseNiceboardService {
     try {
       const response = await this.makeRequest<NiceboardJobsResponse>('/jobs', {
         method: 'GET',
+        params: {
+          page: '1'
+        }
       })
       return response.results.jobs
     } catch (error) {

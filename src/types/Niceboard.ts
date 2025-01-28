@@ -7,6 +7,7 @@ export interface NiceboardJobsResponse {
 export interface NiceboardJob {
   id?: number
   title: string
+  page?: number
   company: {
     id: number
     name: string

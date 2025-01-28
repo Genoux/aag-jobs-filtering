@@ -1,37 +1,45 @@
 // index.ts
 import { Command } from 'commander'
+import path from 'path'
+import { parse } from 'csv-parse/sync'
+import fs from 'fs'
 import { niceboardConfig } from '@config/niceboard'
-import { CommandResult, FetchOptions, UploadOptions } from '@localtypes/common'
-import { CsvService } from './services/csv/CsvService'
-import { JobSearchService } from './services/jobSearch/JobSearchService'
-import { CompanyService } from './services/niceboard/CompanyService'
-import { NiceboardService } from './services/niceboard/NiceboardService'
+import { ExportService } from '@services/export/ExportService'
+import { JobSearchService } from '@services/jobSearch/JobSearchService'
+import { CompanyService } from '@services/niceboard/CompanyService'
+import { NiceboardService } from '@services/niceboard/NiceboardService'
+import { CommandResult } from '@localtypes/config'
+
+type UploadOptions = {
+  dryRun: boolean
+}
 
 class JobProcessor {
   private readonly searchService: JobSearchService
-  private readonly csvService: CsvService
+  private readonly exportService: ExportService
   private readonly niceboardService: NiceboardService
   public readonly companyService: CompanyService
+
   constructor() {
     this.searchService = new JobSearchService()
-    this.csvService = new CsvService()
+    this.exportService = new ExportService({
+      outputDir: path.join(process.cwd(), 'output'),
+    })
     this.niceboardService = new NiceboardService()
     this.companyService = new CompanyService(niceboardConfig)
   }
 
-  async fetchJobs(options: FetchOptions): Promise<CommandResult> {
+  async fetchJobs(): Promise<CommandResult> {
     try {
       console.log('Fetching jobs from JobsPikr...')
       const jobResults = await this.searchService.processAllQueries()
-      // map result so we remove the description field and the html_job_description
 
       console.log('Saving results to CSV...')
-      await this.csvService.saveResultsToCsv(jobResults)
+      await this.exportService.exportResults(jobResults)
 
       return {
         success: true,
-        message:
-          'Jobs fetched and saved successfully. Please review the CSV files before uploading to Niceboard.',
+        message: 'Jobs fetched and saved successfully. Please review the CSV files before uploading to Niceboard.',
       }
     } catch (error) {
       return {
@@ -43,16 +51,17 @@ class JobProcessor {
   }
 
   async uploadJobs(
-    file: string,
+    filePath: string,
     options: UploadOptions,
   ): Promise<CommandResult> {
     try {
-      const jobs = await this.csvService.readJobsFromCsv(file)
+      const csvContent = await fs.promises.readFile(filePath, 'utf-8')
+      const jobs = parse(csvContent, { columns: true })
 
       if (options.dryRun) {
         return {
           success: true,
-          message: 'Dry run completed successfully',
+          message: `Dry run completed successfully. Would process ${jobs.length} jobs.`,
         }
       }
 
@@ -61,10 +70,10 @@ class JobProcessor {
       return {
         success: true,
         message: `Jobs processed successfully:
-                Total: ${stats.total}
-                Created: ${stats.created}
-                Skipped: ${stats.skipped}
-                Failed: ${stats.failed}`,
+          Total: ${stats.total}
+          Created: ${stats.created}
+          Skipped: ${stats.skipped}
+          Failed: ${stats.failed}`,
       }
     } catch (error) {
       return {
@@ -96,7 +105,6 @@ async function removeAllCompanies(
   processor: JobProcessor,
 ): Promise<CommandResult> {
   try {
-    await processor.companyService.fetchAllCompanies()
     const companies = await processor.companyService.fetchAllCompanies()
     for (const company of companies) {
       await processor.companyService.removeCompany(company[1])
@@ -122,12 +130,9 @@ function main() {
   program
     .command('fetch')
     .description('Fetch jobs from JobsPikr and save to CSV')
-    .option('-l, --limit <number>', 'number of jobs to fetch', '50')
-    .action((options) => {
+    .action(() => {
       handleCommand(
-        processor.fetchJobs({
-          limit: parseInt(options.limit),
-        }),
+        processor.fetchJobs(),
       )
     })
 

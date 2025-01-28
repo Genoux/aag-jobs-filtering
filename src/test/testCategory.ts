@@ -36,7 +36,7 @@ async function testCategoryService() {
     console.log('Output:', { 
       category: categoryWithAnd,
       id: categoryWithAndId,
-      note: categoryWithAndId === 43904 ? '(Default "Other" category - 43904)' : ''
+      note: categoryWithAndId === 43904 ? '(Default "Other" category - 43904)' : `Found category ${categoryWithAndId}`
     })
 
     // Test unknown category

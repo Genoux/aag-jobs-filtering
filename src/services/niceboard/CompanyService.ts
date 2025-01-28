@@ -27,7 +27,6 @@ export interface CreateCompanyPayload {
 
 export class CompanyService extends BaseNiceboardService {
   async getOrCreateCompany(companyName: string): Promise<number> {
-    console.log('Getting or creating company:', companyName)
     try {
       const cachedId = this.cache.get(companyName)
       if (cachedId) {

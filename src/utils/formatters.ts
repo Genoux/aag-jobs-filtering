@@ -1,5 +1,5 @@
 // utils/formatters.ts
-import { JobsPikrJob, JobsPikrTimeUnit } from '@localtypes/jobspikr'
+import { JobsPikrJob } from '@localtypes/job'
 
 export const formatters = {
   sanitizeDescription(job: JobsPikrJob): string {
@@ -10,18 +10,6 @@ export const formatters = {
       return `<p>${job.job_description}</p>`
     }
     return '<p>No description provided</p>'
-  },
-
-  mapSalaryTimeframe(timeUnit?: JobsPikrTimeUnit): string | undefined {
-    const mapping: Record<JobsPikrTimeUnit, string> = {
-      yearly: 'annually',
-      monthly: 'monthly',
-      weekly: 'weekly',
-      hourly: 'hourly',
-      daily: 'weekly',
-    }
-
-    return timeUnit ? mapping[timeUnit] : undefined
   },
 
   getLocationKey(city?: string, state?: string, country?: string): string {

@@ -1,5 +1,5 @@
 // services/niceboard/CategoryService.ts
-import { logger, findBestMatch } from '@utils'
+import { logger } from '@utils'
 import { BaseNiceboardService } from './base/BaseNiceboardService'
 
 interface Category {
@@ -13,66 +13,51 @@ interface CategoriesApiResponse {
 
 export class CategoryService extends BaseNiceboardService {
   private readonly OTHER_CATEGORY_ID = 43998
+  private categoryMapPromise: Promise<Record<string, number>> | null = null
 
-  private splitCategories(categoryString: string): string[] {
-    return categoryString
-      .replace(/\s+and\s+/g, ',')
-      .split(/[,&]/)
-      .map(cat => cat.trim())
-      .filter(cat => cat.length > 0)
-  }
-
-  async getCategoryId(categoryString: string): Promise<number> {
+  private async fetchCategoryMap(): Promise<Record<string, number>> {
     try {
-      const categories = this.splitCategories(categoryString)
-      
-      const cachedId = this.cache.get(categoryString)
-      if (cachedId) {
-        return cachedId
-      }
-
       const response = await this.makeRequest<CategoriesApiResponse>('/categories', {
         method: 'GET',
       })
 
       if (!response.results?.categories?.length) {
-        logger.info(
-          `No categories available in the API yet. Using default ID: ${this.OTHER_CATEGORY_ID} (Other)`
-        )
-        return this.OTHER_CATEGORY_ID
+        logger.warn('No categories available from API')
+        return {}
       }
 
-      for (const category of categories) {
-        const exactMatch = response.results.categories.find(
-          cat => cat.name.toLowerCase() === category.toLowerCase()
-        )
-        if (exactMatch) {
-          logger.info(`Found exact match: ${category} -> ${exactMatch.name}`)
-          return exactMatch.id
-        }
-      }
+      const categoryMap = response.results.categories.reduce((map, category) => {
+        map[category.name.toLowerCase()] = category.id
+        return map
+      }, {} as Record<string, number>)
 
-      for (const category of categories) {
-        const fuzzyMatch = findBestMatch(
-          category,
-          response.results.categories,
-          (cat) => cat.name,
-          0.6
-        )
-        if (fuzzyMatch) {
-          logger.info(`Found fuzzy match: ${category} -> ${fuzzyMatch.name}`)
-          return fuzzyMatch.id
-        }
-      }
-
-      logger.info(
-        `No matching category found for "${categoryString}", using fallback ID: ${this.OTHER_CATEGORY_ID} (Other)`
-      )
-      return this.OTHER_CATEGORY_ID
-
+      return categoryMap
     } catch (error) {
-      logger.error(`Failed to handle category "${categoryString}"`, error)
+      logger.error('Failed to fetch category map', error)
+      return {}
+    }
+  }
+
+  private async getCategoryMap(): Promise<Record<string, number>> {
+    if (!this.categoryMapPromise) {
+      this.categoryMapPromise = this.fetchCategoryMap()
+    }
+    return this.categoryMapPromise
+  }
+
+  async getCategoryId(category: string): Promise<number> {
+    try {
+      const categoryMap = await this.getCategoryMap()
+      const normalizedCategory = category.toLowerCase().trim()
+      return categoryMap[normalizedCategory] || this.OTHER_CATEGORY_ID
+    } catch (error) {
+      logger.error(`Failed to handle category "${category}"`, error)
       return this.OTHER_CATEGORY_ID
     }
+  }
+
+  async getValidCategories(): Promise<object[]> {
+    const categoryMap = await this.getCategoryMap()
+    return Object.keys(categoryMap).map(key => ({ name: key, id: categoryMap[key] }))
   }
 }
