@@ -13,7 +13,7 @@ export const jobQueries: Record<string, QueryDefinition> = {
     description: 'Physician positions across the United States',
     buildQuery: () => ({
       format: "json",
-      size: 10,
+      size: 100,
       dataset: ["job_board"],
       search_query_json: {
         bool: {
@@ -73,9 +73,8 @@ export const jobQueries: Record<string, QueryDefinition> = {
             },
             // Required fields
             {
-              query_string: {
-                default_field: 'job_type',
-                query: '*'
+              exists: {
+                field: "job_type"
               }
             },
             {
@@ -88,6 +87,11 @@ export const jobQueries: Record<string, QueryDefinition> = {
               query_string: {
                 default_field: 'is_remote',
                 query: '*'
+              }
+            },
+            {
+              exists: {
+                field: "category"
               }
             },
             // Location filter

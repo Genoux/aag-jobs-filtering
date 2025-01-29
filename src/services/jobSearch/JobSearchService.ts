@@ -16,9 +16,6 @@ export class JobSearchService {
         const apiResponse = await this.searchWithPresetQuery(
           queryName as keyof typeof jobQueries,
         )
-
-        console.log('apiResponse', apiResponse)
-        
         if (!apiResponse) {
           console.warn(`No data returned for query "${queryName}"`)
           continue

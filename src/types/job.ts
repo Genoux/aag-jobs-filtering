@@ -4,7 +4,7 @@ export interface JobTransformer {
 }
 
 export interface BaseJob {
-  title: string
+  job_title: string
   company_name: string
   city?: string
   state?: string

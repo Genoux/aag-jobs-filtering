@@ -1,18 +1,35 @@
-// utils/formatters.ts
-import { JobsPikrJob } from '@localtypes/job'
+import sanitizeHtml from 'sanitize-html';
+import { BaseJob } from '@localtypes/job';
 
 export const formatters = {
-  sanitizeDescription(job: JobsPikrJob): string {
-    if (job.html_job_description) {
-      return job.html_job_description
+  sanitizeDescription(job: BaseJob): string {
+    if (!job.description) {
+      return '<div>No description provided</div>';
     }
-    if (job.job_description) {
-      return `<p>${job.job_description}</p>`
-    }
-    return '<p>No description provided</p>'
-  },
 
-  getLocationKey(city?: string, state?: string, country?: string): string {
-    return [city, state, country].filter(Boolean).join(', ').toLowerCase()
-  },
-}
+    let content = job.description;
+
+    content = content.replace(/<strong>(.*?)<\/strong>/g, '<p><strong>$1</strong></p>');
+
+    content = content
+      .replace(/(?<=>)([^<]+)(?=<)/g, (_, text) => {
+        return text.trim() ? `<p>${text.trim()}</p>` : text;
+      });
+
+    const cleanHtml = sanitizeHtml(content, {
+      allowedTags: [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'p', 'ul', 'ol', 'li', 'strong', 'em',
+        'a'
+      ],
+      allowedAttributes: {
+        'a': ['href']
+      },
+      transformTags: {
+        'div': 'p'
+      }
+    });
+
+    return cleanHtml;
+  }
+};

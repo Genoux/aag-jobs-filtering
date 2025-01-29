@@ -4,7 +4,7 @@ import path from 'path'
 import { parse } from 'csv-parse/sync'
 import fs from 'fs'
 import { niceboardConfig } from '@config/niceboard'
-import { ExportService } from '@services/export/ExportService'
+import { DataService } from '@services/data/DataService'
 import { JobSearchService } from '@services/jobSearch/JobSearchService'
 import { CompanyService } from '@services/niceboard/CompanyService'
 import { NiceboardService } from '@services/niceboard/NiceboardService'
@@ -16,13 +16,13 @@ type UploadOptions = {
 
 class JobProcessor {
   private readonly searchService: JobSearchService
-  private readonly exportService: ExportService
+  private readonly exportService: DataService
   private readonly niceboardService: NiceboardService
   public readonly companyService: CompanyService
 
   constructor() {
     this.searchService = new JobSearchService()
-    this.exportService = new ExportService({
+    this.exportService = new DataService({
       outputDir: path.join(process.cwd(), 'output'),
     })
     this.niceboardService = new NiceboardService()
@@ -101,24 +101,6 @@ async function handleCommand(action: Promise<CommandResult>): Promise<void> {
   }
 }
 
-async function removeAllCompanies(
-  processor: JobProcessor,
-): Promise<CommandResult> {
-  try {
-    const companies = await processor.companyService.fetchAllCompanies()
-    for (const company of companies) {
-      await processor.companyService.removeCompany(company[1])
-    }
-    return { success: true, message: 'All companies removed successfully' }
-  } catch (error) {
-    return {
-      success: false,
-      message: 'Failed to remove companies',
-      error: error instanceof Error ? error : new Error('Unknown error'),
-    }
-  }
-}
-
 function main() {
   const processor = new JobProcessor()
   const program = new Command()
@@ -151,13 +133,6 @@ function main() {
           dryRun: options.dryRun,
         }),
       )
-    })
-
-  program
-    .command('remove-all-companies')
-    .description('Remove all companies from Niceboard')
-    .action(() => {
-      handleCommand(removeAllCompanies(processor))
     })
 
   program.parse()

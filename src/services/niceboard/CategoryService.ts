@@ -7,6 +7,10 @@ interface Category {
   name: string
 }
 
+interface CreateCategoryResponse {
+  category: Category;
+}
+
 interface CategoriesApiResponse {
   categories: Category[]
 }
@@ -59,5 +63,23 @@ export class CategoryService extends BaseNiceboardService {
   async getValidCategories(): Promise<object[]> {
     const categoryMap = await this.getCategoryMap()
     return Object.keys(categoryMap).map(key => ({ name: key, id: categoryMap[key] }))
+  }
+
+  async createCategory(category: string): Promise<number> {
+    try {
+      const response = await this.makeRequest<CreateCategoryResponse>('/categories', {
+        method: 'POST',
+        data: { name: category }
+      });
+      
+      if (response.error) {
+        throw new Error('Failed to create category');
+      }
+      
+      return response.results.category.id;
+    } catch (error) {
+      logger.error(`Failed to create category "${category}"`, error);
+      throw error;
+    }
   }
 }

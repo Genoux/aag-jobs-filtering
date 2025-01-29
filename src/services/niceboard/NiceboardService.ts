@@ -2,7 +2,7 @@
 // ✅
 
 import { niceboardConfig } from '@config/niceboard'
-import { JobsPikrJob } from '@localtypes/job'
+import { BaseJob, JobsPikrJob } from '@localtypes/job'
 import {
   NiceboardConfig,
   NiceboardJob,
@@ -57,6 +57,15 @@ export class NiceboardService extends BaseNiceboardService {
         console.log('Processing job:', job.company_name)
         try {
           logger.info(`Processing job: ${job.job_title} at ${job.company_name}`)
+
+                  
+        // Skip if category is 'Other'
+        if (job.category === 'Other') {
+          logger.info(`Skipping job with 'Other' category: ${job.job_title}`)
+          stats.skipped++
+          continue
+        }
+
           await delay(this.config.requestDelay)
 
           if (await this.isJobDuplicate(job, existingJobs)) {
@@ -137,7 +146,7 @@ export class NiceboardService extends BaseNiceboardService {
   }
 
   private createJobPayload(
-    job: JobsPikrJob,
+    job: BaseJob,
     companyId: number,
     jobTypeId: number,
     locationId?: number,
