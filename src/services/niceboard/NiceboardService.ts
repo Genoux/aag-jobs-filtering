@@ -2,7 +2,7 @@
 // ✅
 
 import { niceboardConfig } from '@config/niceboard'
-import { JobsPikrJob } from '@localtypes/jobspikr'
+import { BaseJob, JobsPikrJob } from '@localtypes/job'
 import {
   NiceboardConfig,
   NiceboardJob,
@@ -57,6 +57,15 @@ export class NiceboardService extends BaseNiceboardService {
         console.log('Processing job:', job.company_name)
         try {
           logger.info(`Processing job: ${job.job_title} at ${job.company_name}`)
+
+                  
+        // Skip if category is 'Other'
+        if (job.category === 'Other') {
+          logger.info(`Skipping job with 'Other' category: ${job.job_title}`)
+          stats.skipped++
+          continue
+        }
+
           await delay(this.config.requestDelay)
 
           if (await this.isJobDuplicate(job, existingJobs)) {
@@ -94,8 +103,6 @@ export class NiceboardService extends BaseNiceboardService {
     job: JobsPikrJob,
     existingJobs: NiceboardJob[],
   ): Promise<boolean> {
-    logger.info(`Checking ${existingJobs.length} existing jobs for duplicates`)
-
     const isDuplicate = existingJobs.some((existing) => {
       const titleMatch =
         existing.title?.toLowerCase() === job.job_title?.toLowerCase()
@@ -105,10 +112,6 @@ export class NiceboardService extends BaseNiceboardService {
       const companyMatch =
         existing.company?.name?.toLowerCase() ===
         job.company_name?.toLowerCase()
-      // logger.debug(`Company match: ${companyMatch}`, {
-      //   newCompany: job.company_name,
-      //   existingCompany: existing.company?.name,
-      // })
 
       if (!companyMatch) return false
 
@@ -143,7 +146,7 @@ export class NiceboardService extends BaseNiceboardService {
   }
 
   private createJobPayload(
-    job: JobsPikrJob,
+    job: BaseJob,
     companyId: number,
     jobTypeId: number,
     locationId?: number,
@@ -157,7 +160,7 @@ export class NiceboardService extends BaseNiceboardService {
       description_html: formatters.sanitizeDescription(job),
       apply_by_form: true,
       is_published: true,
-      remote_only: job.is_remote || false,
+      remote_only: job.is_remote,
       location_id: locationId,
     }
 
@@ -180,6 +183,9 @@ export class NiceboardService extends BaseNiceboardService {
     try {
       const response = await this.makeRequest<NiceboardJobsResponse>('/jobs', {
         method: 'GET',
+        params: {
+          page: '1'
+        }
       })
       return response.results.jobs
     } catch (error) {

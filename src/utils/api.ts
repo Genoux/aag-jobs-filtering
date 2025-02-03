@@ -32,7 +32,7 @@ export class ApiClient {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError
       return new Error(
-        `API Error: ${(axiosError.response?.data as any)?.message || axiosError.message}`,
+        `API Error: ${(axiosError.response?.data as Record<string, string>)?.message || axiosError.message}`,
       )
     }
     return error instanceof Error ? error : new Error('Unknown error occurred')

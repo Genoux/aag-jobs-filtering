@@ -1,30 +1,35 @@
-// utils/formatters.ts
-import { JobsPikrJob, JobsPikrTimeUnit } from '@localtypes/jobspikr'
+import sanitizeHtml from 'sanitize-html';
+import { BaseJob } from '@localtypes/job';
 
 export const formatters = {
-  sanitizeDescription(job: JobsPikrJob): string {
-    if (job.html_job_description) {
-      return job.html_job_description
-    }
-    if (job.job_description) {
-      return `<p>${job.job_description}</p>`
-    }
-    return '<p>No description provided</p>'
-  },
-
-  mapSalaryTimeframe(timeUnit?: JobsPikrTimeUnit): string | undefined {
-    const mapping: Record<JobsPikrTimeUnit, string> = {
-      yearly: 'annually',
-      monthly: 'monthly',
-      weekly: 'weekly',
-      hourly: 'hourly',
-      daily: 'weekly',
+  sanitizeDescription(job: BaseJob): string {
+    if (!job.description) {
+      return '<div>No description provided</div>';
     }
 
-    return timeUnit ? mapping[timeUnit] : undefined
-  },
+    let content = job.description;
 
-  getLocationKey(city?: string, state?: string, country?: string): string {
-    return [city, state, country].filter(Boolean).join(', ').toLowerCase()
-  },
-}
+    content = content.replace(/<strong>(.*?)<\/strong>/g, '<p><strong>$1</strong></p>');
+
+    content = content
+      .replace(/(?<=>)([^<]+)(?=<)/g, (_, text) => {
+        return text.trim() ? `<p>${text.trim()}</p>` : text;
+      });
+
+    const cleanHtml = sanitizeHtml(content, {
+      allowedTags: [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'p', 'ul', 'ol', 'li', 'strong', 'em',
+        'a'
+      ],
+      allowedAttributes: {
+        'a': ['href']
+      },
+      transformTags: {
+        'div': 'p'
+      }
+    });
+
+    return cleanHtml;
+  }
+};

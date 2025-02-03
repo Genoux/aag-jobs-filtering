@@ -8,6 +8,7 @@ async function testCompanyService() {
   try {
     console.log('Fetching all companies...')
     const allCompanies = await service.fetchAllCompanies()
+    console.log('All companies:', allCompanies)
 
     const companyName = 'Test Company Name'
     console.log(`\nTesting get/create for company: ${companyName}`)

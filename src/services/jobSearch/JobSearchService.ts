@@ -1,22 +1,25 @@
 // services/JobSearchService.ts
 import axios from 'axios'
 import { jobspikrConfig } from '@config/jobspikr'
-import { SavedQueryResult } from '@localtypes/common'
-import { ApiResponse, SearchQuery } from '@localtypes/jobspikr'
+import { QueryResult } from '@localtypes/query'
 import { jobQueries } from '@queries/jobQueries'
+import { SearchQuery, JobsPikrApiResponse } from '@localtypes/job'
 
 export class JobSearchService {
-  async processAllQueries(): Promise<Record<string, SavedQueryResult>> {
-    const results: Record<string, SavedQueryResult> = {}
-
+  async processAllQueries(): Promise<Record<string, QueryResult>> {
+    const results: Record<string, QueryResult> = {}
+    
     for (const [queryName, queryDef] of Object.entries(jobQueries)) {
       console.log(`Processing: ${queryDef.name}`)
-
       try {
         const searchDate = new Date()
-        const result = await this.searchWithPresetQuery(
+        const apiResponse = await this.searchWithPresetQuery(
           queryName as keyof typeof jobQueries,
         )
+        if (!apiResponse) {
+          console.warn(`No data returned for query "${queryName}"`)
+          continue
+        }
 
         results[queryName] = {
           query: {
@@ -24,36 +27,37 @@ export class JobSearchService {
             description: queryDef.description,
           },
           stats: {
-            totalFound: result.total_count || 0,
-            returned: result.job_data?.length || 0,
+            totalFound: apiResponse.total_count || 0,
+            returned: apiResponse.job_data?.length || 0,
             searchDate: this.formatDate(searchDate),
           },
-          jobs: result.job_data || [],
+          jobs: apiResponse.job_data || [],
         }
-
+        
         await this.delay(1000)
       } catch (error) {
         console.error(`Error processing query "${queryName}":`, error)
       }
     }
-
+    
     return results
   }
-
   private async searchWithPresetQuery(
-    queryName: keyof typeof jobQueries,
-  ): Promise<ApiResponse> {
+    queryName: keyof typeof jobQueries
+  ): Promise<JobsPikrApiResponse | null> {
     const queryDef = jobQueries[queryName]
     if (!queryDef) {
       throw new Error(`Query "${queryName}" not found`)
     }
+    
     const response = await this.makeApiRequest(queryDef.buildQuery())
-    return response.data
+    // The response.data is the JobsPikrApiResponse
+    return response.data 
   }
 
   private async makeApiRequest(query: SearchQuery) {
     try {
-      return await axios.post<ApiResponse>(
+      return await axios.post<JobsPikrApiResponse>(
         `${jobspikrConfig.API_BASE_URL}/data`,
         query,
         { headers: jobspikrConfig.headers },

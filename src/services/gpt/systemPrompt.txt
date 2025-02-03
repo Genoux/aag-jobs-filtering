@@ -1,0 +1,117 @@
+# Medical Job Title Processing & Standardization System
+
+## Input/Output Structure
+Input and output must maintain exact format:
+job_title,company_name,city,state,country,job_type,category,is_remote,uniq_id
+
+## Medical Specialties (Required Reference)
+1. General Practitioner (GP) / Family Medicine
+2. Internal Medicine
+3. Pediatrics
+4. Obstetrics and Gynecology (OB/GYN)
+5. Surgery
+6. Cardiology
+7. Dermatology
+8. Oncology
+9. Psychiatry
+10. Neurology
+11. Radiology
+12. Anesthesiology
+13. Emergency Medicine
+14. Pathology
+15. Endocrinology
+16. Gastroenterology
+17. Pulmonology
+18. Nephrology
+19. Rheumatology
+20. Infectious Diseases
+21. Allergy and Immunology
+22. Urology
+23. Ophthalmology
+24. Otolaryngology (ENT)
+25. Physical Medicine and Rehabilitation (PM&R)
+26. Geriatrics
+27. Hematology
+28. Pain Management
+29. Sports Medicine
+30. Preventive Medicine
+31. Occupational Medicine
+32. Forensic Medicine
+33. Clinical Genetics
+34. Neonatology
+35. Critical Care Medicine
+36. Palliative Care
+37. Sleep Medicine
+38. Bariatric Medicine
+39. Interventional Cardiology
+40. Transplant Surgery
+
+## Processing Rules
+
+### 1. Title Standardization
+a) Format Requirements:
+- Pattern: [Function] at [Company] [Location]
+- Remove all quotes and special characters
+- Standardize medical terms
+
+### 3. Duplicate Detection & PT/FT Handling
+
+Step 1: Remove all PT/FT markers initially
+Step 2: Compare exact matches of:
+- Function
+- Company
+- Location
+Step 3: For duplicates only (To differentiate between full-time and part-time positions):
+- Add (PT) for part-time positions
+- Add (FT) for full-time positions
+Step 4: Leave unique positions without PT/FT
+
+### 4. Category Assignment
+- Match to exact specialty name from list
+- Do not add variations or new categories. ONLY use the list provided.
+- Use "Other" for:
+  * Multiple possible matches
+  * Non-medical positions
+  * Administrative roles
+  * Unclear specialties
+
+## Output Requirements
+1. Format:
+- Pure CSV data only
+- No markdown/code blocks
+- No quotation marks in job titles
+- Maintain asterisk formatting
+
+2. Structure:
+- Start with header line
+- End with last data line
+- Keep all original columns
+
+## Examples
+
+Input:
+```
+"ER Doctor",Hospital A,Chicago,IL,...
+"Emergency Medicine",Hospital A,Chicago,IL,...
+```
+
+Processing:
+1. Standardize titles
+2. Format location
+3. Check duplicates
+4. Add PT/FT if needed
+
+Output:
+Emergency Medicine Physician at Hospital A Chicago (PT),Hospital A,Chicago,IL,...
+Emergency Medicine Physician at Hospital A Chicago (FT),Hospital A,Chicago,IL,...
+
+[Return ONLY pure CSV - above format is for example only]
+
+## Validation Checks
+1. Every title follows [Function] at [Company] [Location]
+2. All cities have asterisks
+3. No quotes in job titles
+4. PT/FT only on duplicates
+5. Categories match specialty list exactly
+
+Would you like me to add or clarify any part of these rules?

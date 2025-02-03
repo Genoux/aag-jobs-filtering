@@ -1,5 +1,5 @@
 // queries/jobQueries.ts
-import { SearchQuery } from '@localtypes/jobspikr'
+import { SearchQuery } from '@localtypes/job'
 
 export interface QueryDefinition {
   name: string
@@ -9,8 +9,8 @@ export interface QueryDefinition {
 
 export const jobQueries: Record<string, QueryDefinition> = {
   healthcareJobs: {
-    name: 'Healthcare Jobs in US',
-    description: 'Healthcare positions across the United States',
+    name: 'Physician Jobs in US',
+    description: 'Physician positions across the United States',
     buildQuery: () => ({
       format: "json",
       size: 100,
@@ -18,44 +18,63 @@ export const jobQueries: Record<string, QueryDefinition> = {
       search_query_json: {
         bool: {
           must: [
+            // Job titles with specializations
             {
               query_string: {
-                fields: ['job_title', 'inferred_job_title'],
+                fields: ['job_title'],
                 query: `
-                  "physician" OR "Podiatrist" OR "Physician Assistant" OR 
-                  "Certified Anesthesia Assistant" OR "Certified Clinical Perfusionist" OR 
-                  "Certified Nurse Midwife" OR "Clinical Nurse Specialist" OR 
-                  "Certified Registered Nurse Anesthetist" OR "Diagnostic Nurse Assistant" OR 
-                  "Doctor of Nursing Practice" OR "Licensed Clinical Social Worker" OR 
-                  "Licensed Marriage and Family Therapist" OR "Nurse Practitioner" OR 
-                  "Researcher or Academic Expert" OR "PhD" OR "Doctor of Psychology" OR 
-                  "Surgeon" OR "Dentist" OR "Medical Assistant" OR "Pharmacist" OR 
-                  "Physical Therapist" OR "Occupational Therapist" OR 
-                  "Speech-Language Pathologist" OR "Radiologic Technologist" OR 
-                  "Medical Laboratory Technician" OR "Optometrist" OR "Clinical Psychologist" OR 
-                  "Dietitian/Nutritionist" OR "Respiratory Therapist" OR "Anesthesiologist" OR 
-                  "Cardiovascular Technologist" OR "Registered Nurse" OR "Healthcare Administrator" OR 
-                  "Medical Billing Specialist" OR "Home Health Aide" OR "Paramedic/EMT" OR 
-                  "Medical Records Specialist" OR "Cardiologist" OR "Psychiatrist" OR 
-                  "Oncologist" OR "Orthopedic Surgeon" OR "Obstetrician" OR 
-                  "General Practitioner" OR "Laboratory Technician" OR "Ultrasound Technician" OR 
-                  "Infection Control Specialist" OR "Surgical Technician" OR "Chiropractor" OR 
-                  "Veterinarian" OR "Medical Equipment Technician" OR "Palliative Care Specialist" OR 
-                  "Hospice Care Nurse" OR "Telehealth Nurse" OR "Rehabilitation Counselor" OR 
-                  "Medical Scribe"
+                  ("Physician" OR "Doctor" OR "MD" OR "DO") AND 
+                  (
+                    "Family Medicine" OR
+                    "Internal Medicine" OR
+                    "Pediatric" OR
+                    "OB GYN" OR "Obstetrics" OR "Gynecology" OR
+                    "Surgery" OR "Surgeon" OR
+                    "Cardiology" OR "Heart" OR
+                    "Dermatology" OR "Skin" OR
+                    "Oncology" OR "Cancer" OR
+                    "Psychiatry" OR "Mental Health" OR
+                    "Neurology" OR "Brain" OR
+                    "Radiology" OR "Imaging" OR
+                    "Anesthesiology" OR
+                    "Emergency Medicine" OR "ER" OR
+                    "Pathology" OR "Lab" OR
+                    "Endocrinology" OR "Diabetes" OR
+                    "Gastroenterology" OR "GI" OR
+                    "Pulmonology" OR "Lung" OR
+                    "Nephrology" OR "Kidney" OR
+                    "Rheumatology" OR "Arthritis" OR
+                    "ENT" OR "Ear Nose Throat" OR
+                    "Geriatric" OR "Senior" OR
+                    "Critical Care" OR "ICU" OR
+                    "Hospitalist"
+                  )
                 `
               }
             },
+            // Description must indicate it's a physician role
             {
               query_string: {
-                default_field: 'category',
-                query: 'physician OR nurse-practitioner OR physician-assistant OR crna OR assistant OR dnp OR other OR phd OR dna OR pa OR caa OR ccp OR cns OR psyd OR student OR lmft OR lcsw OR cnm'
+                fields: ['job_description'],
+                query: `
+                  (
+                    "Medical Doctor" OR "Doctor of Medicine" OR "Doctor of Osteopathy" OR
+                    "Board Certified" OR "Board Eligible" OR
+                    "MD" OR "DO" OR "Medical License" OR "State License"
+                  )
+                  AND
+                  (
+                    "clinical practice" OR "patient care" OR "diagnose and treat" OR
+                    "medical staff" OR "hospital privileges" OR "private practice" OR
+                    "residency completed" OR "fellowship" OR "medical degree"
+                  )
+                `
               }
             },
+            // Required fields
             {
-              query_string: {
-                default_field: 'job_type',
-                query: '*'
+              exists: {
+                field: "job_type"
               }
             },
             {
@@ -64,6 +83,18 @@ export const jobQueries: Record<string, QueryDefinition> = {
                 query: '*'
               }
             },
+            {
+              query_string: {
+                default_field: 'is_remote',
+                query: '*'
+              }
+            },
+            {
+              exists: {
+                field: "category"
+              }
+            },
+            // Location filter
             {
               bool: {
                 should: [
@@ -82,25 +113,7 @@ export const jobQueries: Record<string, QueryDefinition> = {
                 ]
               }
             },
-            {
-              query_string: {
-                fields: ['job_description'],
-                query: `
-                  Diagnoses and treats illnesses OR NPs can diagnose and prescribe OR 
-                  Provides patient care OR administers treatments OR educates patients OR 
-                  Supports healthcare providers OR Dispenses medications OR 
-                  advises patients on proper use and potential side effects OR 
-                  Helps patients improve mobility OR manage pain OR Prepares for surgeries OR 
-                  sterilizes instruments OR assists surgeons OR Manages patient records OR 
-                  ensures data accuracy OR Advises patients on healthy eating OR 
-                  Treats breathing disorders using therapy OR 
-                  Translates healthcare services into codes for insurance claims OR 
-                  Oversees clinical trials OR Helps patients manage emotional OR 
-                  Provides eye exams OR diagnoses vision problems OR prescribes corrective lenses OR 
-                  Treats musculoskeletal issues OR spinal manipulation OR treating patients with mental health
-                `
-              }
-            },
+            // Date and status
             {
               range: {
                 post_date: {
@@ -109,6 +122,21 @@ export const jobQueries: Record<string, QueryDefinition> = {
                     .split('T')[0],
                   lte: new Date().toISOString().split('T')[0],
                 }
+              }
+            },
+            {
+              query_string: {
+                default_field: "has_expired",
+                query: "false",
+              }
+            },
+            // Contact requirements
+            {
+              bool: {
+                should: [
+                  { exists: { field: "contact_email" } },
+                  { exists: { field: "apply_url" } }
+                ]
               }
             }
           ],
