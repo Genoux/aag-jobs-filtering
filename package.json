@@ -19,7 +19,8 @@
     "test:jobtype": "ts-node -r tsconfig-paths/register ./src/scripts/test/testJobType.ts",
     "test:location": "ts-node -r tsconfig-paths/register ./src/scripts/test/testLocation.ts",
     "test:category": "ts-node -r tsconfig-paths/register ./src/scripts/test/testCategory.ts",
-    "test:merge-csv": "ts-node -r tsconfig-paths/register ./src/scripts/test/testMerge.ts"
+    "test:merge-csv": "ts-node -r tsconfig-paths/register ./src/scripts/test/testMerge.ts",
+    "test:cron": "ts-node -r tsconfig-paths/register ./src/scripts/test/testCron.ts"
   },
   "keywords": [],
   "author": "",

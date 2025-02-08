@@ -34,7 +34,6 @@ export class JobSearchService {
           jobs: apiResponse.job_data || [],
         }
         
-        await this.delay(1000)
       } catch (error) {
         console.error(`Error processing query "${queryName}":`, error)
       }
@@ -90,9 +89,5 @@ export class JobSearchService {
       second: '2-digit',
       hour12: false,
     })
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }

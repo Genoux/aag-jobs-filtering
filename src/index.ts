@@ -14,7 +14,7 @@ type UploadOptions = {
   dryRun: boolean
 }
 
-class JobProcessor {
+export class JobProcessor {
   private readonly searchService: JobSearchService
   private readonly exportService: DataService
   private readonly niceboardService: NiceboardService
@@ -101,41 +101,44 @@ async function handleCommand(action: Promise<CommandResult>): Promise<void> {
   }
 }
 
-function main() {
-  const processor = new JobProcessor()
-  const program = new Command()
+if (require.main === module) {
+  function main() {
+    const processor = new JobProcessor()
+    const program = new Command()
 
-  program
-    .name('job-processor')
-    .description('CLI to manage jobs between JobsPikr and Niceboard')
+    program
+      .name('job-processor')
+      .description('CLI to manage jobs between JobsPikr and Niceboard')
 
-  program
-    .command('fetch')
-    .description('Fetch jobs from JobsPikr and save to CSV')
-    .action(() => {
-      handleCommand(
-        processor.fetchJobs(),
+    program
+      .command('fetch')
+      .description('Fetch jobs from JobsPikr and save to CSV')
+      .action(() => {
+        handleCommand(
+          processor.fetchJobs(),
+        )
+      })
+
+    program
+      .command('upload')
+      .description('Upload jobs from CSV to Niceboard')
+      .argument('<file>', 'CSV file to upload')
+      .option(
+        '-d, --dry-run',
+        'Show what would be uploaded without actually uploading',
+        false,
       )
-    })
+      .action((file, options) => {
+        handleCommand(
+          processor.uploadJobs(file, {
+            dryRun: options.dryRun,
+          }),
+        )
+      })
 
-  program
-    .command('upload')
-    .description('Upload jobs from CSV to Niceboard')
-    .argument('<file>', 'CSV file to upload')
-    .option(
-      '-d, --dry-run',
-      'Show what would be uploaded without actually uploading',
-      false,
-    )
-    .action((file, options) => {
-      handleCommand(
-        processor.uploadJobs(file, {
-          dryRun: options.dryRun,
-        }),
-      )
-    })
+    program.parse()
+  }
 
-  program.parse()
+  main()
+
 }
-
-main()

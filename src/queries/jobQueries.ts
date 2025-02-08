@@ -13,7 +13,7 @@ export const jobQueries: Record<string, QueryDefinition> = {
     description: 'Physician positions across the United States',
     buildQuery: () => ({
       format: "json",
-      size: 100,
+      size: 50,
       dataset: ["job_board"],
       search_query_json: {
         bool: {

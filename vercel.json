@@ -1,0 +1,15 @@
+{
+  "crons": [{
+    "path": "/api/cron",
+    "schedule": "0 9 * * 1/2"
+  }],
+  "functions": {
+    "api/cron.ts": {
+      "maxDuration": 300
+    }
+  },
+  "env": {
+    "CRON_SECRET": "@cron_secret",
+    "OPENAI_API_KEY": "@openai_api_key"
+  }
+}

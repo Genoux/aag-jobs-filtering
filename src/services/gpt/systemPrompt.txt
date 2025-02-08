@@ -2,7 +2,7 @@
 
 ## Input/Output Structure
 Input and output must maintain exact format:
-job_title,company_name,city,state,country,job_type,category,is_remote,uniq_id
+job_title,company_name,city,state,country,job_type,category,uniq_id
 
 ## Medical Specialties (Required Reference)
 1. General Practitioner (GP) / Family Medicine
@@ -109,9 +109,8 @@ Emergency Medicine Physician at Hospital A Chicago (FT),Hospital A,Chicago,IL,..
 
 ## Validation Checks
 1. Every title follows [Function] at [Company] [Location]
-2. All cities have asterisks
+2. Keep the same uniq_id
 3. No quotes in job titles
 4. PT/FT only on duplicates
 5. Categories match specialty list exactly
-
-Would you like me to add or clarify any part of these rules?
+6. Keep the exact same header (job_title,company_name,city,state,country,job_type,category,uniq_id)
