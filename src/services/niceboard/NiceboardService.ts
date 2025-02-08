@@ -8,7 +8,7 @@ import {
   NiceboardJob,
   NiceboardJobPayload,
   NiceboardJobsResponse,
-} from '@localtypes/Niceboard'
+} from '@localtypes/niceboard'
 import { delay, formatters, logger, validation } from '@utils'
 import { BaseNiceboardService } from './base/BaseNiceboardService'
 import { CompanyService } from './CompanyService'

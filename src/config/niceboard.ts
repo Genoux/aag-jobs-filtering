@@ -1,6 +1,6 @@
 // config/niceboard.ts
 import dotenv from 'dotenv'
-import { NiceboardConfig } from '@localtypes/Niceboard'
+import { NiceboardConfig } from '@localtypes/niceboard'
 
 dotenv.config()
 

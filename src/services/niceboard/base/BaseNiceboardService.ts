@@ -1,6 +1,6 @@
 // services/niceboard/base/BaseNiceboardService.ts
 import { ApiResponse, RequestOptions } from '@localtypes/common'
-import { NiceboardConfig } from '@localtypes/Niceboard'
+import { NiceboardConfig } from '@localtypes/niceboard'
 import { ApiClient, CacheManager, logger } from '@utils'
 
 export abstract class BaseNiceboardService {
