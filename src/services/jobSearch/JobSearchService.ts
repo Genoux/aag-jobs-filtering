@@ -34,12 +34,12 @@ export class JobSearchService {
           jobs: apiResponse.job_data || [],
         }
         
-        await this.delay(1000)
       } catch (error) {
         console.error(`Error processing query "${queryName}":`, error)
       }
     }
     
+    console.log(`Total queries processed: ${Object.keys(results).length}`)
     return results
   }
   private async searchWithPresetQuery(
@@ -90,9 +90,5 @@ export class JobSearchService {
       second: '2-digit',
       hour12: false,
     })
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }

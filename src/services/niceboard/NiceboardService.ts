@@ -54,10 +54,8 @@ export class NiceboardService extends BaseNiceboardService {
       const existingJobs = await this.fetchExistingJobs()
 
       for (const job of jobs) {
-        console.log('Processing job:', job.company_name)
         try {
-          logger.info(`Processing job: ${job.job_title} at ${job.company_name}`)
-
+          logger.info(`Processing job: ${job.job_title}`)
                   
         // Skip if category is 'Other'
         if (job.category === 'Other') {

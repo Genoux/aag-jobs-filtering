@@ -1,4 +1,3 @@
-// queries/jobQueries.ts
 import { SearchQuery } from '@localtypes/job'
 
 export interface QueryDefinition {
@@ -13,7 +12,7 @@ export const jobQueries: Record<string, QueryDefinition> = {
     description: 'Physician positions across the United States',
     buildQuery: () => ({
       format: "json",
-      size: 100,
+      size: 50,
       dataset: ["job_board"],
       search_query_json: {
         bool: {
@@ -23,33 +22,33 @@ export const jobQueries: Record<string, QueryDefinition> = {
               query_string: {
                 fields: ['job_title'],
                 query: `
-                  ("Physician" OR "Doctor" OR "MD" OR "DO") AND 
-                  (
-                    "Family Medicine" OR
-                    "Internal Medicine" OR
-                    "Pediatric" OR
-                    "OB GYN" OR "Obstetrics" OR "Gynecology" OR
-                    "Surgery" OR "Surgeon" OR
-                    "Cardiology" OR "Heart" OR
-                    "Dermatology" OR "Skin" OR
-                    "Oncology" OR "Cancer" OR
-                    "Psychiatry" OR "Mental Health" OR
-                    "Neurology" OR "Brain" OR
-                    "Radiology" OR "Imaging" OR
-                    "Anesthesiology" OR
-                    "Emergency Medicine" OR "ER" OR
-                    "Pathology" OR "Lab" OR
-                    "Endocrinology" OR "Diabetes" OR
-                    "Gastroenterology" OR "GI" OR
-                    "Pulmonology" OR "Lung" OR
-                    "Nephrology" OR "Kidney" OR
-                    "Rheumatology" OR "Arthritis" OR
-                    "ENT" OR "Ear Nose Throat" OR
-                    "Geriatric" OR "Senior" OR
-                    "Critical Care" OR "ICU" OR
-                    "Hospitalist"
-                  )
-                `
+                 ("Physician" OR "Doctor" OR "MD" OR "DO") AND 
+                 (
+                   "Family Medicine" OR
+                   "Internal Medicine" OR
+                   "Pediatric" OR
+                   "OB GYN" OR "Obstetrics" OR "Gynecology" OR
+                   "Surgery" OR "Surgeon" OR
+                   "Cardiology" OR "Heart" OR
+                   "Dermatology" OR "Skin" OR
+                   "Oncology" OR "Cancer" OR
+                   "Psychiatry" OR "Mental Health" OR
+                   "Neurology" OR "Brain" OR
+                   "Radiology" OR "Imaging" OR
+                   "Anesthesiology" OR
+                   "Emergency Medicine" OR "ER" OR
+                   "Pathology" OR "Lab" OR
+                   "Endocrinology" OR "Diabetes" OR
+                   "Gastroenterology" OR "GI" OR
+                   "Pulmonology" OR "Lung" OR
+                   "Nephrology" OR "Kidney" OR
+                   "Rheumatology" OR "Arthritis" OR
+                   "ENT" OR "Ear Nose Throat" OR
+                   "Geriatric" OR "Senior" OR
+                   "Critical Care" OR "ICU" OR
+                   "Hospitalist"
+                 )
+               `
               }
             },
             // Description must indicate it's a physician role
@@ -57,18 +56,18 @@ export const jobQueries: Record<string, QueryDefinition> = {
               query_string: {
                 fields: ['job_description'],
                 query: `
-                  (
-                    "Medical Doctor" OR "Doctor of Medicine" OR "Doctor of Osteopathy" OR
-                    "Board Certified" OR "Board Eligible" OR
-                    "MD" OR "DO" OR "Medical License" OR "State License"
-                  )
-                  AND
-                  (
-                    "clinical practice" OR "patient care" OR "diagnose and treat" OR
-                    "medical staff" OR "hospital privileges" OR "private practice" OR
-                    "residency completed" OR "fellowship" OR "medical degree"
-                  )
-                `
+                 (
+                   "Medical Doctor" OR "Doctor of Medicine" OR "Doctor of Osteopathy" OR
+                   "Board Certified" OR "Board Eligible" OR
+                   "MD" OR "DO" OR "Medical License" OR "State License"
+                 )
+                 AND
+                 (
+                   "clinical practice" OR "patient care" OR "diagnose and treat" OR
+                   "medical staff" OR "hospital privileges" OR "private practice" OR
+                   "residency completed" OR "fellowship" OR "medical degree"
+                 )
+               `
               }
             },
             // Required fields
@@ -94,7 +93,7 @@ export const jobQueries: Record<string, QueryDefinition> = {
                 field: "category"
               }
             },
-            // Location filter
+            // Location filter 
             {
               bool: {
                 should: [
@@ -151,6 +150,13 @@ export const jobQueries: Record<string, QueryDefinition> = {
               query_string: {
                 default_field: 'company_name',
                 query: 'Unspecified'
+              }
+            },
+            // Exclude Undefined job_type
+            {
+              query_string: {
+                default_field: 'job_type',
+                query: 'Undefined'
               }
             }
           ]

@@ -12,7 +12,7 @@ export interface DataServiceOptions {
 }
 
 export class DataService {
-  private readonly outputDir: string
+  public readonly outputDir: string
   private readonly csvOptions = {
     columns: true,
     skip_empty_lines: false,
@@ -103,10 +103,8 @@ export class DataService {
 
   private async writeJobData(outputDir: string, jobs: JobsPikrJob[]): Promise<void> {
     const fullData = jobs.map(DataSerializer.serializeFullJob)
-    const simplifiedData = jobs.map(DataSerializer.serializeSimplifiedJob)
     await Promise.all([
       this.writeCsv(path.join(outputDir, 'data.csv'), fullData),
-      this.writeCsv(path.join(outputDir, 'data_simplified.csv'), simplifiedData)
     ])
   }
 
@@ -116,8 +114,7 @@ export class DataService {
         row.uniq_id,
         {
           job_title: row.job_title,
-          category: row.category,
-          company_name: row.company_name
+          category: row.category
         }
       ])
     )

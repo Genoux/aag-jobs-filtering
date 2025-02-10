@@ -1,8 +1,21 @@
 # Medical Job Title Processing & Standardization System
 
 ## Input/Output Structure
-Input and output must maintain exact format:
-job_title,company_name,city,state,country,job_type,category,is_remote,uniq_id
+CRITICAL: Keep these exact field values from input:
+- company_name  (NEVER MODIFY)
+- city (NEVER MODIFY)
+- state (NEVER MODIFY) 
+- country (NEVER MODIFY)
+- job_type (NEVER MODIFY)
+- uniq_id (CRITICAL - NEVER MODIFY)
+
+ONLY modify:
+1. job_title: Standardize to "[Specialty] Physician at [Company] [City]"
+2. category: Match to specialty list below
+
+Example:
+INPUT: "Physician - Hematology and Oncology",Mercy,Springfield,MO,US,Full Time,Health Care Provider,false,10a231b76c6651c469fb43203459c5cb
+OUTPUT: Hematology and Oncology Physician at Mercy Springfield,Mercy,Springfield,MO,US,Full Time,Oncology,10a231b76c6651c469fb43203459c5cb
 
 ## Medical Specialties (Required Reference)
 1. General Practitioner (GP) / Family Medicine
@@ -50,12 +63,34 @@ job_title,company_name,city,state,country,job_type,category,is_remote,uniq_id
 
 ### 1. Title Standardization
 a) Format Requirements:
-- Pattern: [Function] at [Company] [Location]
+- Pattern: [Specialty] Physician at [Company] [City]
 - Remove all quotes and special characters
 - Standardize medical terms
+- Always include "Physician" in the title unless it's clearly a different role (like "Nurse Practitioner" or "Physician Assistant")
 
-### 3. Duplicate Detection & PT/FT Handling
+### 2. Category Assignment
+- Match to exact specialty name from list above
+- Do not add variations or new categories
+- Use "Other" for:
+  * Multiple possible matches
+  * Non-medical positions
+  * Administrative roles
+  * Unclear specialties
+  * Any other category that does not fit the above
 
+### 3. CRITICAL Field Preservation Rules
+1. Never modify these fields:
+   - company_name (keep exactly as provided)
+   - city (keep exactly as provided)
+   - state (keep exactly as provided)
+   - country (keep exactly as provided)
+   - job_type (keep exactly as provided)
+   - uniq_id (MUST keep exactly as provided)
+2. Only modify:
+   - job_title (standardize format)
+   - category (match to specialty list)
+
+### 4. Duplicate Detection & PT/FT Handling
 Step 1: Remove all PT/FT markers initially
 Step 2: Compare exact matches of:
 - Function
@@ -66,52 +101,35 @@ Step 3: For duplicates only (To differentiate between full-time and part-time po
 - Add (FT) for full-time positions
 Step 4: Leave unique positions without PT/FT
 
-### 4. Category Assignment
-- Match to exact specialty name from list
-- Do not add variations or new categories. ONLY use the list provided.
-- Use "Other" for:
-  * Multiple possible matches
-  * Non-medical positions
-  * Administrative roles
-  * Unclear specialties
-
 ## Output Requirements
 1. Format:
 - Pure CSV data only
 - No markdown/code blocks
 - No quotation marks in job titles
-- Maintain asterisk formatting
+- Keep exact column order and original values
+- CRITICAL: Preserve exact uniq_id values
 
 2. Structure:
-- Start with header line
-- End with last data line
-- Keep all original columns
-
-## Examples
-
-Input:
-```
-"ER Doctor",Hospital A,Chicago,IL,...
-"Emergency Medicine",Hospital A,Chicago,IL,...
-```
-
-Processing:
-1. Standardize titles
-2. Format location
-3. Check duplicates
-4. Add PT/FT if needed
-
-Output:
-Emergency Medicine Physician at Hospital A Chicago (PT),Hospital A,Chicago,IL,...
-Emergency Medicine Physician at Hospital A Chicago (FT),Hospital A,Chicago,IL,...
-
-[Return ONLY pure CSV - above format is for example only]
+- Include header line: job_title,company_name,city,state,country,job_type,category,uniq_id
+- Output exact field values except job_title and category
+- Never swap or mix up field values
 
 ## Validation Checks
-1. Every title follows [Function] at [Company] [Location]
-2. All cities have asterisks
-3. No quotes in job titles
-4. PT/FT only on duplicates
-5. Categories match specialty list exactly
+1. Every title follows [Specialty] Physician at [Company] [City]
+2. Original uniq_id preserved exactly
+3. Original company_name preserved exactly
+4. Original city preserved exactly
+5. Original state preserved exactly
+6. Original country preserved exactly
+7. Original job_type preserved exactly
+8. Category matches specialty list exactly
+9. No empty fields
+10. No swapped field values
 
-Would you like me to add or clarify any part of these rules?
+## CRITICAL REMINDERS:
+1. Never modify original field values except job_title and category
+2. Keep all columns in exact order
+3. Preserve all data fields exactly as provided
+4. Only standardize job titles and match categories
+5. Never swap or mix up field values
+6. Always keep original uniq_id
