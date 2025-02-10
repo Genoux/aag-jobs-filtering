@@ -39,6 +39,7 @@ export class JobSearchService {
       }
     }
     
+    console.log(`Total queries processed: ${Object.keys(results).length}`)
     return results
   }
   private async searchWithPresetQuery(

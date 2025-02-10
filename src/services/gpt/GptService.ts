@@ -1,18 +1,10 @@
+// services/gpt/GptService.ts
 import OpenAI from 'openai'
 import { parse } from 'csv-parse/sync'
 import fs from 'fs'
 import path from 'path'
 import { stringify } from 'csv-stringify/sync'
-
-type Job = {
-  job_title: string
-  company_name: string
-  city: string
-  state: string
-  job_type: string
-  category: string
-  uniq_id: string
-}
+import { JobsPikrJob } from '@localtypes/job'
 
 export class GptService {
   private readonly csvOptions = {
@@ -26,89 +18,91 @@ export class GptService {
     skip_records_with_error: true,
   }
 
+  private readonly jobColumns = [
+    'job_title', 'company_name', 'city', 'state', 
+    'country', 'job_type', 'category', 'uniq_id'
+  ] as const;
+
   constructor(private readonly openai: OpenAI) {}
 
   private async getSystemPrompt(): Promise<string> {
     try {
-      const promptPath = path.join(__dirname, 'systemPrompt.txt')
-      return await fs.promises.readFile(promptPath, 'utf-8')
+      return await fs.promises.readFile(
+        path.join(__dirname, 'systemPrompt.txt'), 
+        'utf-8'
+      )
     } catch (error) {
       console.error('Error reading prompt file:', error)
       throw new Error('Failed to load system prompt')
     }
   }
 
-  async standardizeJobData(csvContent: string): Promise<string> {
+  private async processChunk(chunk: JobsPikrJob[], systemPrompt: string, chunkIndex: number, totalChunks: number): Promise<JobsPikrJob[]> {
+    console.log(`Processing chunk ${chunkIndex + 1}/${totalChunks}`);
+    
+    // Only send necessary fields to GPT
+    const simplifiedChunk = chunk.map(job => ({
+      job_title: job.job_title,
+      company_name: job.company_name,
+      city: job.city,
+      state: job.state,
+      country: job.country,
+      job_type: job.job_type,
+      category: job.category,
+      uniq_id: job.uniq_id.toString()
+    }));
+
+    const chunkCsv = stringify(simplifiedChunk, {
+      header: true,
+      columns: this.jobColumns
+    });
+
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: chunkCsv }
+      ],
+      response_format: { type: "text" },
+      temperature: 0.1,
+      max_tokens: 4000
+    });
+
+    if (!response.choices[0].message.content) {
+      throw new Error('No response from GPT');
+    }
+
+    const standardizedRows = parse(response.choices[0].message.content, {
+      ...this.csvOptions,
+      columns: true
+    });
+
+    // Merge standardized data back with original jobs
+    return chunk.map((originalJob, index) => ({
+      ...originalJob,
+      job_title: standardizedRows[index].job_title,
+      category: standardizedRows[index].category
+    }));
+  }
+
+  async standardizeJobData(jobs: JobsPikrJob[]): Promise<JobsPikrJob[]> {
     try {
       const systemPrompt = await this.getSystemPrompt();
-      const records = parse(csvContent, this.csvOptions) as Job[];
-      
-      const simplifiedRecords = records.map(record => ({
-        job_title: record.job_title,
-        company_name: record.company_name,
-        city: record.city,
-        state: record.state,
-        job_type: record.job_type,
-        category: record.category,
-        uniq_id: record.uniq_id
-      }));
-
       const chunkSize = 10;
-      const chunks = [];
-      for (let i = 0; i < simplifiedRecords.length; i += chunkSize) {
-        chunks.push(simplifiedRecords.slice(i, i + chunkSize));
-      }
+      const chunks = Array.from(
+        { length: Math.ceil(jobs.length / chunkSize) },
+        (_, i) => jobs.slice(i * chunkSize, (i + 1) * chunkSize)
+      );
 
       console.log(`Processing ${chunks.length} chunks of ${chunkSize} records each`);
 
       const processedChunks = await Promise.all(
-        chunks.map(async (chunk, index) => {
-          console.log(`Processing chunk ${index + 1}/${chunks.length}`);
-
-          const chunkCsv = stringify(chunk, {
-            header: true,
-            columns: ['job_title', 'company_name', 'city', 'state', 'job_type', 'category', 'uniq_id']
-          });
-
-          const response = await this.openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-              {
-                role: "system",
-                content: systemPrompt
-              },
-              {
-                role: "user",
-                content: chunkCsv
-              }
-            ],
-            response_format: { type: "text" },
-            temperature: 0.1,
-            max_tokens: 4000
-          });
-
-          if (!response.choices[0].message.content) {
-            throw new Error('No response from GPT')
-          }
-
-          const standardizedRows = parse(response.choices[0].message.content, {
-            ...this.csvOptions,
-            columns: true
-          }) as Job[];
-
-          return standardizedRows.map(row => ({
-            job_title: row.job_title,
-            category: row.category,
-            uniq_id: row.uniq_id
-          }));
-        })
+        chunks.map((chunk, index) => 
+          this.processChunk(chunk, systemPrompt, index, chunks.length)
+        )
       );
 
-      return stringify(processedChunks.flat(), {
-        header: true,
-        columns: ['job_title', 'category', 'uniq_id']
-      });
-
+      return processedChunks.flat();
     } catch (error) {
       console.error('Error in standardization:', error);
       throw error;

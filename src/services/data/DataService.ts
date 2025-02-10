@@ -12,7 +12,7 @@ export interface DataServiceOptions {
 }
 
 export class DataService {
-  private readonly outputDir: string
+  public readonly outputDir: string
   private readonly csvOptions = {
     columns: true,
     skip_empty_lines: false,
